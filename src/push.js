@@ -378,6 +378,7 @@ Options:
   --setfavorite   Mark as favorite (only in modes with links)
   --gitignore [path]  Use .gitignore to filter files (optional custom path)
   --atdate=YYYYMMDD   Insert archive at specific date (IMAGE only)
+  --keep          Keep files at root (copy instead of move)
   --help          Show this help message
 
 Arguments:
@@ -389,6 +390,7 @@ Examples:
   mwpush --setfavorite "milestone v1.0" # Mark as favorite
   mwpush --gitignore "clean version"    # Filter with .gitignore
   mwpush --atdate=20260301 "old backup" # Insert at March 1st, 2026
+  mwpush --keep "backup copy"           # Keep files at root (copy mode)
 
 Gitignore cascade:
   1. Custom path (if specified)
@@ -418,6 +420,7 @@ function pushMemoryWell() {
   const setFavorite = args.includes('--setfavorite');
   const useDelta = args.includes('--usedelta');
   const useGitignore = args.includes('--gitignore');
+  const keepFiles = args.includes('--keep');
   const atDateArg = args.find(arg => arg.startsWith('--atdate='));
   const atDate = atDateArg ? atDateArg.split('=')[1] : null;
   
@@ -568,8 +571,13 @@ function pushMemoryWell() {
         const srcPath = path.join(cwd, item);
         const destPath = path.join(archivePath, item);
         
-        fs.renameSync(srcPath, destPath);
-        console.log(`  ✓ Moved: ${item}`);
+        if (keepFiles) {
+          copyItem(srcPath, destPath);
+          console.log(`  ✓ Copied: ${item}`);
+        } else {
+          fs.renameSync(srcPath, destPath);
+          console.log(`  ✓ Moved: ${item}`);
+        }
       });
       
       console.log(`\n📦 Created IMAGE archive: ${archiveName}`);
@@ -613,8 +621,15 @@ function pushMemoryWell() {
             
             if (!filesAreIdentical(dirFiles[relPath], imageIndex[fullRelPath])) {
               fs.mkdirSync(path.dirname(fileDestPath), { recursive: true });
-              fs.renameSync(fileSrcPath, fileDestPath);
-              console.log(`  ✓ Moved (changed): ${fullRelPath}`);
+              if (keepFiles) {
+                fs.copyFileSync(fileSrcPath, fileDestPath);
+                const srcStat = fs.statSync(fileSrcPath);
+                fs.utimesSync(fileDestPath, srcStat.atime, srcStat.mtime);
+                console.log(`  ✓ Copied (changed): ${fullRelPath}`);
+              } else {
+                fs.renameSync(fileSrcPath, fileDestPath);
+                console.log(`  ✓ Moved (changed): ${fullRelPath}`);
+              }
               movedCount++;
             } else {
               skippedCount++;
@@ -623,8 +638,15 @@ function pushMemoryWell() {
         } else if (stat.isFile()) {
           if (!filesAreIdentical(currentIndex[item], imageIndex[item])) {
             const destPath = path.join(archivePath, item);
-            fs.renameSync(srcPath, destPath);
-            console.log(`  ✓ Moved (changed): ${item}`);
+            if (keepFiles) {
+              fs.copyFileSync(srcPath, destPath);
+              const srcStat = fs.statSync(srcPath);
+              fs.utimesSync(destPath, srcStat.atime, srcStat.mtime);
+              console.log(`  ✓ Copied (changed): ${item}`);
+            } else {
+              fs.renameSync(srcPath, destPath);
+              console.log(`  ✓ Moved (changed): ${item}`);
+            }
             movedCount++;
           } else {
             skippedCount++;
@@ -639,19 +661,21 @@ function pushMemoryWell() {
         created: now.toISOString()
       }, null, 2));
       
-      // Clean up root - delete all remaining files/folders
-      console.log(`\n🗑️  Cleaning up root directory...`);
-      rootFiles.forEach(item => {
-        const itemPath = path.join(cwd, item);
-        if (fs.existsSync(itemPath)) {
-          const stat = fs.statSync(itemPath);
-          if (stat.isDirectory()) {
-            fs.rmSync(itemPath, { recursive: true, force: true });
-          } else {
-            fs.unlinkSync(itemPath);
+      // Clean up root - delete all remaining files/folders (unless --keep)
+      if (!keepFiles) {
+        console.log(`\n🗑️  Cleaning up root directory...`);
+        rootFiles.forEach(item => {
+          const itemPath = path.join(cwd, item);
+          if (fs.existsSync(itemPath)) {
+            const stat = fs.statSync(itemPath);
+            if (stat.isDirectory()) {
+              fs.rmSync(itemPath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(itemPath);
+            }
           }
-        }
-      });
+        });
+      }
       
       console.log(`\n📦 Created ${archiveType} archive: ${archiveName}`);
       console.log(`   Base image: ${firstImage}`);
