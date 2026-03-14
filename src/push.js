@@ -161,6 +161,69 @@ function getNextArchiveNumber(archivesDir) {
   return Math.max(...numbers) + 1;
 }
 
+function findInsertionPoint(archivesDir, targetDateStr) {
+  if (!fs.existsSync(archivesDir)) {
+    return 0;
+  }
+  
+  const archives = fs.readdirSync(archivesDir)
+    .filter(name => /^\d{2}-\d{8}-\d{6}/.test(name))
+    .sort();
+  
+  if (archives.length === 0) return 0;
+  
+  // Find where to insert based on date
+  for (let i = 0; i < archives.length; i++) {
+    const archiveDateStr = archives[i].split('-')[1] + '-' + archives[i].split('-')[2];
+    if (targetDateStr < archiveDateStr) {
+      return i;
+    }
+  }
+  
+  // Insert at end
+  return archives.length;
+}
+
+function renumberArchives(archivesDir, fromNum) {
+  const archives = fs.readdirSync(archivesDir)
+    .filter(name => /^\d{2}-\d{8}-\d{6}/.test(name))
+    .map(name => ({
+      name,
+      num: parseInt(name.split('-')[0])
+    }))
+    .filter(a => a.num >= fromNum)
+    .sort((a, b) => b.num - a.num); // Sort descending to avoid conflicts
+  
+  console.log(`\n🔢 Renumbering ${archives.length} archive(s) to make room...`);
+  
+  archives.forEach(archive => {
+    const oldPath = path.join(archivesDir, archive.name);
+    const newNum = String(archive.num + 1).padStart(2, '0');
+    const newName = archive.name.replace(/^\d{2}/, newNum);
+    const newPath = path.join(archivesDir, newName);
+    
+    fs.renameSync(oldPath, newPath);
+    console.log(`  ✓ ${archive.name} → ${newName}`);
+    
+    // Update delta metadata if exists
+    const metaPath = path.join(newPath, '.memorywell-meta.json');
+    if (fs.existsSync(metaPath)) {
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+      if (meta.baseImage) {
+        // Update base image reference if it was renumbered
+        const baseNum = parseInt(meta.baseImage.split('-')[0]);
+        if (baseNum >= fromNum) {
+          const newBaseNum = String(baseNum + 1).padStart(2, '0');
+          meta.baseImage = meta.baseImage.replace(/^\d{2}/, newBaseNum);
+          fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+        }
+      }
+    }
+  });
+  
+  console.log('');
+}
+
 function formatDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -314,6 +377,7 @@ Options:
   --usedelta      Save only changed files (incremental backup)
   --setfavorite   Mark as favorite (only in modes with links)
   --gitignore [path]  Use .gitignore to filter files (optional custom path)
+  --atdate=YYYYMMDD   Insert archive at specific date (IMAGE only)
   --help          Show this help message
 
 Arguments:
@@ -324,12 +388,15 @@ Examples:
   mwpush --usedelta "quick save"        # Incremental DELTA
   mwpush --setfavorite "milestone v1.0" # Mark as favorite
   mwpush --gitignore "clean version"    # Filter with .gitignore
-  mwpush --gitignore /path/.gitignore   # Custom .gitignore
+  mwpush --atdate=20260301 "old backup" # Insert at March 1st, 2026
 
 Gitignore cascade:
   1. Custom path (if specified)
   2. .gitignore at project root
   3. .gitignore in installation directory
+
+Note: --atdate only works with IMAGE archives (not --usedelta).
+      Existing archives will be automatically renumbered.
 `);
   process.exit(0);
 }
@@ -351,6 +418,21 @@ function pushMemoryWell() {
   const setFavorite = args.includes('--setfavorite');
   const useDelta = args.includes('--usedelta');
   const useGitignore = args.includes('--gitignore');
+  const atDateArg = args.find(arg => arg.startsWith('--atdate='));
+  const atDate = atDateArg ? atDateArg.split('=')[1] : null;
+  
+  // Validate --atdate format and restrictions
+  if (atDate) {
+    if (!/^\d{8}$/.test(atDate)) {
+      console.log('❌ Invalid --atdate format. Use YYYYMMDD (e.g., 20260314)');
+      process.exit(1);
+    }
+    if (useDelta) {
+      console.log('❌ Cannot use --atdate with --usedelta.');
+      console.log('💡 --atdate only works with IMAGE archives to avoid delta chain complexity.');
+      process.exit(1);
+    }
+  }
   
   // Parse gitignore if requested
   let gitignorePatterns = null;
@@ -394,7 +476,17 @@ function pushMemoryWell() {
     }
   }
   
-  const description = args.filter(arg => !arg.startsWith('--') && arg !== args[args.indexOf('--gitignore') + 1]).join(' ') || '';
+  // Filter out options and gitignore path parameter
+  const gitignoreArgIndex = args.indexOf('--gitignore');
+  const gitignoreArgPath = (gitignoreArgIndex !== -1 && gitignoreArgIndex + 1 < args.length && !args[gitignoreArgIndex + 1].startsWith('--')) 
+    ? args[gitignoreArgIndex + 1] 
+    : null;
+  
+  const description = args.filter(arg => {
+    if (arg.startsWith('--')) return false;
+    if (gitignoreArgPath && arg === gitignoreArgPath) return false;
+    return true;
+  }).join(' ') || '';
   
   const rootFiles = getRootFiles(cwd, gitignorePatterns);
   const allRootFiles = getRootFiles(cwd); // For cleanup
@@ -413,9 +505,30 @@ function pushMemoryWell() {
   }
   
   const archivesDir = getArchivesDir(cwd);
-  const archiveNum = getNextArchiveNumber(archivesDir);
-  const now = new Date();
-  const dateStr = formatDate(now);
+  
+  let archiveNum;
+  let dateStr;
+  let now;
+  
+  if (atDate) {
+    // Parse custom date
+    const year = parseInt(atDate.substring(0, 4));
+    const month = parseInt(atDate.substring(4, 6)) - 1;
+    const day = parseInt(atDate.substring(6, 8));
+    now = new Date(year, month, day, 12, 0, 0); // Noon on specified date
+    dateStr = formatDate(now);
+    
+    // Find insertion point and renumber archives
+    archiveNum = findInsertionPoint(archivesDir, dateStr);
+    if (archiveNum > 0) {
+      renumberArchives(archivesDir, archiveNum);
+    }
+  } else {
+    // Normal flow - append at end
+    archiveNum = getNextArchiveNumber(archivesDir);
+    now = new Date();
+    dateStr = formatDate(now);
+  }
   
   const firstImage = findFirstImage(archivesDir);
   
