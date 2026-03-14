@@ -4,37 +4,43 @@ const fs = require('fs');
 const path = require('path');
 
 function isMemoryWell(dir) {
-  // Check for --nolinks mode (single directory)
+  // Check for --nolinks mode (structure inside 00-memorywell)
   if (fs.existsSync(path.join(dir, '00-memorywell'))) {
-    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+    const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+    return requiredDirs.every(d => fs.existsSync(path.join(dir, '00-memorywell', d)));
   }
-  // Check for full mode (with time-based links)
+  // Check for full mode (structure at root)
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
 }
 
-function getArchivesDir(cwd) {
+function getBaseDir(cwd) {
   if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    return path.join(cwd, '00-memorywell', 'folders');
+    return path.join(cwd, '00-memorywell');
   }
-  return path.join(cwd, '05-folders');
+  return cwd;
+}
+
+function getArchivesDir(cwd) {
+  return path.join(getBaseDir(cwd), '05-folders');
 }
 
 function getFavoritesDir(cwd) {
-  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    return null; // No favorites in simple mode
-  }
-  return path.join(cwd, '04-favorites');
+  return path.join(getBaseDir(cwd), '04-favorites');
 }
 
 function getTimeDirs(cwd) {
-  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    return []; // No time-based links in simple mode
+  const baseDir = getBaseDir(cwd);
+  const isSimpleMode = baseDir !== cwd;
+  
+  if (isSimpleMode) {
+    return []; // No visible time-based links in simple mode
   }
+  
   return [
-    { path: path.join(cwd, '01-last-week'), days: 7 },
-    { path: path.join(cwd, '02-last-month'), days: 30 },
-    { path: path.join(cwd, '03-last-year'), days: 365 }
+    { path: path.join(baseDir, '01-last-week'), days: 7 },
+    { path: path.join(baseDir, '02-last-month'), days: 30 },
+    { path: path.join(baseDir, '03-last-year'), days: 365 }
   ];
 }
 
@@ -330,19 +336,17 @@ function pushMemoryWell() {
     
     const favoritesDir = getFavoritesDir(cwd);
     
-    if (favoritesDir) {
-      if (setFavorite) {
-        const favoriteLinkPath = path.join(favoritesDir, archiveName);
-        fs.symlinkSync(archivePath, favoriteLinkPath);
-        console.log('⭐ Marked as favorite');
-      }
-      
-      const lastLinkPath = path.join(favoritesDir, '00-last');
-      if (fs.existsSync(lastLinkPath)) {
-        fs.unlinkSync(lastLinkPath);
-      }
-      fs.symlinkSync(archivePath, lastLinkPath);
+    if (setFavorite) {
+      const favoriteLinkPath = path.join(favoritesDir, archiveName);
+      fs.symlinkSync(archivePath, favoriteLinkPath);
+      console.log('⭐ Marked as favorite');
     }
+    
+    const lastLinkPath = path.join(favoritesDir, '00-last');
+    if (fs.existsSync(lastLinkPath)) {
+      fs.unlinkSync(lastLinkPath);
+    }
+    fs.symlinkSync(archivePath, lastLinkPath);
     
     console.log('\n✅ Push completed successfully!');
     

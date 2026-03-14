@@ -4,20 +4,25 @@ const fs = require('fs');
 const path = require('path');
 
 function isMemoryWell(dir) {
-  // Check for --nolinks mode (single directory)
+  // Check for --nolinks mode (structure inside 00-memorywell)
   if (fs.existsSync(path.join(dir, '00-memorywell'))) {
-    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+    const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+    return requiredDirs.every(d => fs.existsSync(path.join(dir, '00-memorywell', d)));
   }
-  // Check for full mode (with time-based links)
+  // Check for full mode (structure at root)
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
 }
 
-function getArchivesDir(cwd) {
+function getBaseDir(cwd) {
   if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    return path.join(cwd, '00-memorywell', 'folders');
+    return path.join(cwd, '00-memorywell');
   }
-  return path.join(cwd, '05-folders');
+  return cwd;
+}
+
+function getArchivesDir(cwd) {
+  return path.join(getBaseDir(cwd), '05-folders');
 }
 
 function listArchives(archivesDir) {
@@ -202,7 +207,7 @@ function deleteRootFiles(cwd, rootFiles) {
   });
 }
 
-async function popMemoryWell() {
+async function extractMemoryWell() {
   const cwd = process.cwd();
   
   if (!isMemoryWell(cwd)) {
@@ -227,8 +232,8 @@ async function popMemoryWell() {
     archives.forEach((archive, idx) => {
       console.log(`   ${idx + 1}. ${archive}`);
     });
-    console.log('\nUsage: pop <archive-name>');
-    console.log('Example: pop 00-20260314-164523-first-try');
+    console.log('\nUsage: extract <archive-name>');
+    console.log('Example: extract 00-20260314-164523-first-try');
     process.exit(0);
   }
   
@@ -286,7 +291,7 @@ async function popMemoryWell() {
       reconstructFromDelta(cwd, archivesDir, archiveName);
       
       console.log(`\n📂 Restored DELTA archive: ${archiveName}`);
-      console.log('\n✅ Pop completed successfully!');
+      console.log('\n✅ Extract completed successfully!');
     } else {
       const archiveItems = fs.readdirSync(archivePath);
       let restoredCount = 0;
@@ -312,15 +317,15 @@ async function popMemoryWell() {
       
       console.log(`\n📂 Restored IMAGE archive: ${archiveName}`);
       console.log(`   Files restored: ${restoredCount}`);
-      console.log('\n✅ Pop completed successfully!');
+      console.log('\n✅ Extract completed successfully!');
     }
     
   } catch (error) {
-    console.error('❌ Error during pop:', error.message);
+    console.error('❌ Error during extract:', error.message);
     process.exit(1);
   }
 }
 
 (async () => {
-  await popMemoryWell();
+  await extractMemoryWell();
 })();

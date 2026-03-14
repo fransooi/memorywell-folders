@@ -5,12 +5,17 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const { showDialog, showListDialog } = require(path.join(__dirname, 'gui-helpers.js'));
 
+function getBaseDir(cwd) {
+  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
+    return path.join(cwd, '00-memorywell');
+  }
+  return cwd;
+}
+
 const cwd = process.cwd();
 
 try {
-  const archivesDir = fs.existsSync(path.join(cwd, '00-memorywell')) 
-    ? path.join(cwd, '00-memorywell', 'folders')
-    : path.join(cwd, '05-folders');
+  const archivesDir = path.join(getBaseDir(cwd), '05-folders');
   
   if (!fs.existsSync(archivesDir)) {
     showDialog('MemoryWell Set Favorite', 'No archives found!', 'warning');
@@ -27,14 +32,9 @@ try {
     process.exit(0);
   }
   
-  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    showDialog('MemoryWell Set Favorite', 'Favorites are not available in simple mode (--nolinks)', 'warning');
-    process.exit(0);
-  }
-  
-  const favoriteDir = path.join(cwd, '04-favorites');
+  const favoritesDir = path.join(getBaseDir(cwd), '04-favorites');
   const archivesWithStatus = archives.map(archive => {
-    const isFav = fs.existsSync(path.join(favoriteDir, archive));
+    const isFav = fs.existsSync(path.join(favoritesDir, archive));
     return isFav ? `⭐ ${archive}` : `   ${archive}`;
   });
   

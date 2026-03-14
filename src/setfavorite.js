@@ -4,27 +4,29 @@ const fs = require('fs');
 const path = require('path');
 
 function isMemoryWell(dir) {
-  // Check for --nolinks mode (single directory)
+  // Check for --nolinks mode (structure inside 00-memorywell)
   if (fs.existsSync(path.join(dir, '00-memorywell'))) {
-    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+    const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+    return requiredDirs.every(d => fs.existsSync(path.join(dir, '00-memorywell', d)));
   }
-  // Check for full mode (with time-based links)
+  // Check for full mode (structure at root)
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
 }
 
-function getArchivesDir(cwd) {
+function getBaseDir(cwd) {
   if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    return path.join(cwd, '00-memorywell', 'folders');
+    return path.join(cwd, '00-memorywell');
   }
-  return path.join(cwd, '05-folders');
+  return cwd;
+}
+
+function getArchivesDir(cwd) {
+  return path.join(getBaseDir(cwd), '05-folders');
 }
 
 function getFavoritesDir(cwd) {
-  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    return null; // No favorites in simple mode
-  }
-  return path.join(cwd, '04-favorites');
+  return path.join(getBaseDir(cwd), '04-favorites');
 }
 
 function listArchives(archivesDir) {
@@ -54,11 +56,6 @@ function setFavoriteArchive() {
   }
   
   const favoritesDir = getFavoritesDir(cwd);
-  
-  if (!favoritesDir) {
-    console.log('❌ Favorites are not available in simple mode (--nolinks)');
-    process.exit(1);
-  }
   
   const archiveName = process.argv[2];
   

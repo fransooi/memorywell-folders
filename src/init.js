@@ -5,11 +5,12 @@ const path = require('path');
 const os = require('os');
 
 function isMemoryWell(dir) {
-  // Check for --nolinks mode (single directory)
+  // Check for --nolinks mode (structure inside 00-memorywell)
   if (fs.existsSync(path.join(dir, '00-memorywell'))) {
-    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+    const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+    return requiredDirs.every(d => fs.existsSync(path.join(dir, '00-memorywell', d)));
   }
-  // Check for full mode (with time-based links)
+  // Check for full mode (structure at root)
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
 }
@@ -63,10 +64,10 @@ node "${scriptPath}"`;
     });
   } else if (platform === 'linux') {
     const apps = [
-      { name: 'Push', script: 'gui/gui-push.js', icon: '📦' },
-      { name: 'Pop', script: 'gui/gui-pop.js', icon: '📂' },
-      { name: 'Find', script: 'gui/gui-find.js', icon: '🔍' },
-      { name: 'SetFavorite', script: 'gui/gui-setfavorite.js', icon: '⭐' }
+      { name: 'push', script: 'gui/gui-push.js', icon: '📦' },
+      { name: 'extract', script: 'gui/gui-extract.js', icon: '📂' },
+      { name: 'find', script: 'gui/gui-find.js', icon: '🔍' },
+      { name: 'setfavorite', script: 'gui/gui-setfavorite.js', icon: '⭐' }
     ];
     
     apps.forEach(app => {
@@ -96,17 +97,21 @@ function initMemoryWell() {
   }
   
   try {
+    const dirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+    
     if (noLinks) {
-      // Simple mode: only 00-memorywell/folders
-      const mainDir = path.join(cwd, '00-memorywell');
-      const foldersDir = path.join(mainDir, 'folders');
-      fs.mkdirSync(foldersDir, { recursive: true });
-      console.log('✓ Created 00-memorywell/folders/');
-      console.log('\n✅ MemoryWell initialized (simple mode - no time-based links)!');
-    } else {
-      // Full mode: time-based directories
-      const dirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+      // Simple mode: structure inside 00-memorywell/
+      const baseDir = path.join(cwd, '00-memorywell');
       
+      dirs.forEach(dir => {
+        const dirPath = path.join(baseDir, dir);
+        fs.mkdirSync(dirPath, { recursive: true });
+      });
+      
+      console.log('✓ Created 00-memorywell/ (with internal structure)');
+      console.log('\n✅ MemoryWell initialized (simple mode - single visible folder)!');
+    } else {
+      // Full mode: structure at root
       dirs.forEach(dir => {
         const dirPath = path.join(cwd, dir);
         fs.mkdirSync(dirPath, { recursive: true });
@@ -125,7 +130,7 @@ function initMemoryWell() {
     
     console.log('\nYou can now use:');
     console.log('  - mwpush: Archive files from root');
-    console.log('  - mwpop: Restore an archive to root');
+    console.log('  - mwextract: Restore an archive to root');
     console.log('  - mwfind: Search through archives');
     
     if (useGUI) {

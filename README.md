@@ -2,7 +2,7 @@
 
 **Simple, Visual Backup System with Time-Based Organization**
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/FrancoisLionet/memorywell-folders)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/fransooi/memorywell-folders)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)]()
 
@@ -15,7 +15,7 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 - ⭐ Built-in favorites system
 - 🖱️ Optional GUI with native dialogs
 - 🚀 One-command installation
-- 🎯 Two modes: Full (with time links) or Simple (single folder)
+- 🎯 Two modes: Full (visible structure) or Simple (hidden structure)
 
 ---
 
@@ -23,16 +23,8 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 
 - [Quick Start](#quick-start)
 - [Installation](#installation)
-  - [Windows](#windows)
-  - [macOS](#macos)
-  - [Linux](#linux)
 - [How It Works](#how-it-works)
-  - [Full Mode (Default)](#full-mode-default)
-  - [Simple Mode (--nolinks)](#simple-mode---nolinks)
 - [Usage](#usage)
-  - [CLI Commands](#cli-commands)
-  - [GUI Mode](#gui-mode)
-  - [Pop Safety Options](#pop-safety-options)
 - [Examples](#examples)
 - [Future Versions](#future-versions)
 - [Author](#author)
@@ -48,11 +40,11 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 # or
 .\install.ps1  # Windows
 
-# Initialize a folder (full mode with time-based links)
+# Initialize a folder (full mode with visible time-based folders)
 cd my-project
 mwinit
 
-# OR initialize in simple mode (single folder, perfect for development)
+# OR initialize in simple mode (single visible folder)
 mwinit --nolinks
 
 # Archive your work
@@ -63,8 +55,8 @@ mwpush "first version"
 echo "More content" > file2.txt
 mwpush --usedelta "second version"
 
-# Restore an archive
-mwpop 00-20260314-123456-IMAGE-first-version
+# Extract an archive
+mwextract 00-20260314-123456-IMAGE-first-version
 ```
 
 ---
@@ -76,7 +68,7 @@ mwpop 00-20260314-123456-IMAGE-first-version
 1. **Prerequisites:** Node.js installed
 2. **Install:**
    ```powershell
-   git clone https://github.com/FrancoisLionet/memorywell-folders.git
+   git clone https://github.com/fransooi/memorywell-folders.git
    cd memorywell-folders
    .\install.ps1
    ```
@@ -87,7 +79,7 @@ mwpop 00-20260314-123456-IMAGE-first-version
 1. **Prerequisites:** Node.js installed
 2. **Install:**
    ```bash
-   git clone https://github.com/FrancoisLionet/memorywell-folders.git
+   git clone https://github.com/fransooi/memorywell-folders.git
    cd memorywell-folders
    chmod +x install.sh
    ./install.sh
@@ -109,7 +101,7 @@ MemoryWell offers two modes to suit different workflows:
 
 ### Full Mode (Default)
 
-Perfect for projects where you want automatic time-based organization.
+Perfect for projects where you want visible time-based organization.
 
 **Structure created:**
 ```
@@ -122,7 +114,7 @@ your-project/
 ```
 
 **Features:**
-- ✅ Time-based navigation
+- ✅ Visible time-based navigation
 - ✅ Favorites system
 - ✅ Automatic link management
 - ✅ Easy browsing by date
@@ -134,27 +126,35 @@ mwinit
 
 ### Simple Mode (--nolinks)
 
-Perfect for development where you want minimal visual clutter.
+Perfect for development where you want minimal visual clutter. The structure is hidden inside a single folder.
 
 **Structure created:**
 ```
 your-project/
 └── 00-memorywell/
-    └── folders/       # ALL archives (actual files)
+    ├── 01-last-week/      # (hidden from root)
+    ├── 02-last-month/     # (hidden from root)
+    ├── 03-last-year/      # (hidden from root)
+    ├── 04-favorites/      # (hidden from root)
+    └── 05-folders/        # ALL archives (actual files)
 ```
 
 **Features:**
-- ✅ Single directory
-- ✅ No visual clutter
-- ✅ Faster operations
-- ✅ All core features work
-- ❌ No time-based links
-- ❌ No favorites
+- ✅ Single visible directory
+- ✅ No visual clutter in IDE
+- ✅ Same internal structure
+- ✅ All features work identically
 
 **Initialize:**
 ```bash
 mwinit --nolinks
 ```
+
+**Why this design?**
+- Same code for both modes (simpler maintenance)
+- Favorites still work in simple mode
+- Time-based links exist but are hidden
+- Easy to switch between modes
 
 ---
 
@@ -168,7 +168,7 @@ Initialize a directory as a MemoryWell.
 
 **Options:**
 - `--gui`: Create clickable GUI applications
-- `--nolinks`: Simple mode (single folder, no time-based links)
+- `--nolinks`: Simple mode (single visible folder)
 
 **Examples:**
 ```bash
@@ -184,7 +184,7 @@ Archive all files from the root directory.
 
 **Options:**
 - `--usedelta`: Save only changed files (incremental backup)
-- `--setfavorite`: Mark as favorite (full mode only)
+- `--setfavorite`: Mark as favorite
 - `<description>`: Optional description for the archive
 
 **Examples:**
@@ -198,9 +198,9 @@ mwpush --setfavorite "milestone v1.0"
 - `00-YYYYMMDD-HHMMSS-IMAGE-description` (full archive)
 - `00-YYYYMMDD-HHMMSS-DELTA-description` (incremental)
 
-#### `mwpop [--mode=delete|merge|archive] <archive-name>`
+#### `mwextract [--mode=delete|merge|archive] <archive-name>`
 
-Restore an archive to the root directory.
+Extract an archive to the root directory.
 
 **Safety options** (if root has files):
 - `delete`: Remove current files (⚠️ destructive)
@@ -209,8 +209,8 @@ Restore an archive to the root directory.
 
 **Examples:**
 ```bash
-mwpop 00-20260314-123456-IMAGE-first-version
-mwpop --mode=archive 00-20260314-123456-IMAGE-first-version
+mwextract 00-20260314-123456-IMAGE-first-version
+mwextract --mode=archive 00-20260314-123456-IMAGE-first-version
 ```
 
 **Interactive mode:**
@@ -238,7 +238,7 @@ mwfind --contains "TODO"
 
 #### `mwsetfavorite <archive-name>`
 
-Toggle favorite status of an archive (full mode only).
+Toggle favorite status of an archive.
 
 **Examples:**
 ```bash
@@ -251,13 +251,13 @@ When initialized with `--gui`, MemoryWell creates clickable applications:
 
 **macOS:**
 - `MemoryWell-Push.app`
-- `MemoryWell-Pop.app`
+- `MemoryWell-Extract.app`
 - `MemoryWell-Find.app`
 - `MemoryWell-SetFavorite.app`
 
 **Linux:**
 - `memorywell-push.sh`
-- `memorywell-pop.sh`
+- `memorywell-extract.sh`
 - `memorywell-find.sh`
 - `memorywell-setfavorite.sh`
 
@@ -269,9 +269,9 @@ When initialized with `--gui`, MemoryWell creates clickable applications:
 - No terminal needed
 - Same functionality as CLI
 
-### Pop Safety Options
+### Extract Safety Options
 
-When restoring an archive with `mwpop`, if files exist at root:
+When extracting an archive with `mwextract`, if files exist at root:
 
 **1. DELETE Mode**
 ```
@@ -296,7 +296,7 @@ When restoring an archive with `mwpop`, if files exist at root:
 
 **CLI:**
 ```bash
-mwpop --mode=archive 00-20260314-123456-IMAGE-version
+mwextract --mode=archive 00-20260314-123456-IMAGE-version
 ```
 
 **GUI:**
@@ -318,14 +318,14 @@ mwpush "working on login"
 mwpush --usedelta "fixed bug"
 mwpush --usedelta "added tests"
 
-# Restore previous version
-mwpop 00-20260314-120000-IMAGE-working-on-login
+# Extract previous version
+mwextract 00-20260314-120000-IMAGE-working-on-login
 ```
 
 ### Project Workflow (Full Mode)
 
 ```bash
-# Initialize with time-based organization
+# Initialize with visible time-based organization
 cd my-project
 mwinit
 
@@ -338,8 +338,8 @@ mwpush --usedelta "quick save"
 ls 01-last-week/     # Recent work
 ls 04-favorites/     # Important versions
 
-# Restore with safety
-mwpop --mode=archive 00-20260314-100000-IMAGE-v1.0-release
+# Extract with safety
+mwextract --mode=archive 00-20260314-100000-IMAGE-v1.0-release
 ```
 
 ### GUI Workflow
@@ -351,7 +351,7 @@ mwinit --gui
 
 # Now just double-click:
 # - MemoryWell-Push.app to archive
-# - MemoryWell-Pop.app to restore
+# - MemoryWell-Extract.app to restore
 # - MemoryWell-Find.app to search
 ```
 
@@ -384,7 +384,7 @@ Software Creator
 
 - 🌐 Website: [francoislio.net](https://francoislio.net)
 - 📧 Email: francoas@pm.me
-- 💻 GitHub: [@FrancoisLionet](https://github.com/FrancoisLionet)
+- 💻 GitHub: [@fransooi](https://github.com/fransooi)
 
 ---
 
@@ -412,7 +412,7 @@ MemoryWell was created to solve the simple problem of "I want to save my work wi
 
 **Philosophy:**
 - Simple > Complex
-- Visible > Hidden
+- Visible > Hidden  
 - Folders > Databases
 - Your files, your control
 

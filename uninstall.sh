@@ -19,7 +19,7 @@ fi
 echo "Removing command wrappers from $BIN_DIR..."
 rm -f "$BIN_DIR/mwinit"
 rm -f "$BIN_DIR/mwpush"
-rm -f "$BIN_DIR/mwpop"
+rm -f "$BIN_DIR/mwextract"
 rm -f "$BIN_DIR/mwfind"
 rm -f "$BIN_DIR/mwsetfavorite"
 
