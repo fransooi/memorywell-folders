@@ -284,6 +284,25 @@ function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitigno
   console.log(`   Recursive: ${recursive ? 'yes' : 'no'}\n`);
   
   try {
+    // Auto-push BEFORE import if requested
+    if (mode === '--autopush' && rootFiles.length > 0) {
+      console.log('📦 Pushing current files first...\n');
+      
+      const pushScript = path.join(__dirname, 'push.js');
+      const description = `Before importing ${path.basename(resolvedSource)}`;
+      
+      try {
+        execSync(`node "${pushScript}" "${description}"`, {
+          cwd,
+          stdio: 'inherit'
+        });
+        console.log('');
+      } catch (error) {
+        console.error('❌ Auto-push failed:', error.message);
+        process.exit(1);
+      }
+    }
+    
     // Handle replace mode
     if (mode === '--replace') {
       if (rootFiles.length > 0) {
@@ -319,9 +338,9 @@ function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitigno
       console.log(`   Files/folders skipped: ${skippedCount}`);
     }
     
-    // Auto-push if requested
+    // Auto-push AFTER import if requested
     if (mode === '--autopush') {
-      console.log('\n📦 Auto-pushing imported files...\n');
+      console.log('\n📦 Pushing imported files...\n');
       
       const pushScript = path.join(__dirname, 'push.js');
       const description = `Imported from ${path.basename(resolvedSource)}`;
