@@ -94,6 +94,46 @@ function findFirstImage(archivesDir) {
   return archives.length > 0 ? archives[0] : null;
 }
 
+function findLastImage(archivesDir) {
+  if (!fs.existsSync(archivesDir)) {
+    return null;
+  }
+  
+  const archives = fs.readdirSync(archivesDir)
+    .filter(name => /^\d{2}-\d{8}-\d{6}/.test(name))
+    .sort()
+    .reverse();
+  
+  for (const archive of archives) {
+    if (archive.includes('-IMAGE-')) {
+      return archive;
+    }
+  }
+  
+  return null;
+}
+
+function countArchivesSinceLastImage(archivesDir) {
+  if (!fs.existsSync(archivesDir)) {
+    return 0;
+  }
+  
+  const archives = fs.readdirSync(archivesDir)
+    .filter(name => /^\d{2}-\d{8}-\d{6}/.test(name))
+    .sort()
+    .reverse();
+  
+  let count = 0;
+  for (const archive of archives) {
+    if (archive.includes('-IMAGE-')) {
+      break;
+    }
+    count++;
+  }
+  
+  return count;
+}
+
 function isArchiveImage(archiveName) {
   return archiveName.includes('-IMAGE');
 }
@@ -245,7 +285,25 @@ function pushMemoryWell() {
   const dateStr = formatDate(now);
   
   const firstImage = findFirstImage(archivesDir);
-  const archiveType = (useDelta && firstImage) ? 'DELTA' : 'IMAGE';
+  
+  // Validation: première archive DOIT être IMAGE
+  if (useDelta && !firstImage) {
+    console.log('❌ Cannot use --usedelta: no IMAGE archive exists yet.');
+    console.log('💡 First archive must be a full IMAGE. Run without --usedelta.');
+    process.exit(1);
+  }
+  
+  // Suggestion: créer IMAGE si trop de deltas
+  const deltaCount = countArchivesSinceLastImage(archivesDir);
+  const DELTA_THRESHOLD = 5;
+  
+  if (useDelta && deltaCount >= DELTA_THRESHOLD) {
+    console.log(`⚠️  Warning: ${deltaCount} DELTA archives since last IMAGE.`);
+    console.log('💡 Consider creating a new IMAGE archive (without --usedelta) for better reliability.');
+    console.log('');
+  }
+  
+  const archiveType = useDelta ? 'DELTA' : 'IMAGE';
   
   let archiveName;
   if (description) {

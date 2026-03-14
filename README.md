@@ -187,6 +187,11 @@ Archive all files from the root directory.
 - `--setfavorite`: Mark as favorite
 - `<description>`: Optional description for the archive
 
+**Delta Rules:**
+- ⚠️ First archive MUST be IMAGE (--usedelta will be rejected)
+- 💡 After 5+ DELTA archives, you'll get a suggestion to create a new IMAGE
+- ✅ This ensures delta chains don't get too long and remain reliable
+
 **Examples:**
 ```bash
 mwpush "initial version"
