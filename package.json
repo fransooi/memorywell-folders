@@ -1,0 +1,18 @@
+{
+  "name": "memorywell-folders",
+  "version": "1.0.0",
+  "description": "Auto-managed backup folders with time-based organization",
+  "bin": {
+    "mw-init": "./src/init.js",
+    "mw-push": "./src/push.js",
+    "mw-pop": "./src/pop.js",
+    "mw-find": "./src/find.js",
+    "mw-setfavorite": "./src/setfavorite.js"
+  },
+  "scripts": {
+    "install-global": "npm link"
+  },
+  "keywords": ["backup", "archive", "folder", "memorywell"],
+  "author": "",
+  "license": "MIT"
+}

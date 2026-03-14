@@ -1,0 +1,35 @@
+# Node modules
+node_modules/
+
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test folders
+folder/
+test-*/
+tmp/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
