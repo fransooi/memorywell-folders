@@ -4,6 +4,81 @@ const fs = require('fs');
 const path = require('path');
 const { remapMemoryWell } = require('./remap.js');
 
+// Parse .gitignore file and return array of patterns
+function parseGitignore(gitignorePath) {
+  if (!fs.existsSync(gitignorePath)) {
+    return [];
+  }
+  
+  const content = fs.readFileSync(gitignorePath, 'utf8');
+  return content
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
+}
+
+// Check if a file path matches any gitignore pattern
+function matchesGitignore(filePath, patterns, rootDir) {
+  const relativePath = path.relative(rootDir, filePath);
+  
+  for (const pattern of patterns) {
+    // Handle negation patterns
+    if (pattern.startsWith('!')) {
+      const negPattern = pattern.slice(1);
+      if (matchPattern(relativePath, negPattern)) {
+        return false; // Explicitly included
+      }
+      continue;
+    }
+    
+    if (matchPattern(relativePath, pattern)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Simple pattern matching for gitignore rules
+function matchPattern(filePath, pattern) {
+  // Remove leading slash
+  if (pattern.startsWith('/')) {
+    pattern = pattern.slice(1);
+  }
+  
+  // Directory pattern (ends with /)
+  if (pattern.endsWith('/')) {
+    const dirPattern = pattern.slice(0, -1);
+    return filePath.startsWith(dirPattern + '/') || filePath === dirPattern;
+  }
+  
+  // Wildcard patterns
+  if (pattern.includes('*')) {
+    const regexPattern = pattern
+      .replace(/\./g, '\\.')
+      .replace(/\*/g, '.*');
+    const regex = new RegExp(`^${regexPattern}$`);
+    
+    // Check full path and basename
+    if (regex.test(filePath)) return true;
+    if (regex.test(path.basename(filePath))) return true;
+    
+    // Check if any parent directory matches
+    const parts = filePath.split(path.sep);
+    for (let i = 0; i < parts.length; i++) {
+      if (regex.test(parts[i])) return true;
+    }
+    
+    return false;
+  }
+  
+  // Exact match or basename match
+  return filePath === pattern || 
+         filePath.startsWith(pattern + '/') || 
+         path.basename(filePath) === pattern ||
+         filePath.split(path.sep).includes(pattern);
+}
+
 function isMemoryWell(dir) {
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
@@ -97,7 +172,7 @@ function formatDate(date) {
   return `${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
-function getRootFiles(cwd) {
+function getRootFiles(cwd, gitignorePatterns = null) {
   const protectedDirs = ['00-memorywell', '00-memorywell-folders', '01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
   return fs.readdirSync(cwd).filter(item => {
@@ -105,6 +180,12 @@ function getRootFiles(cwd) {
     if (item.startsWith('.')) return false;
     
     const itemPath = path.join(cwd, item);
+    
+    // Apply gitignore filtering if patterns provided
+    if (gitignorePatterns && matchesGitignore(itemPath, gitignorePatterns, cwd)) {
+      return false;
+    }
+    
     const stat = fs.statSync(itemPath);
     return stat.isFile() || stat.isDirectory();
   });
@@ -231,17 +312,70 @@ function pushMemoryWell() {
     process.exit(1);
   }
   
-  const rootFiles = getRootFiles(cwd);
-  
-  if (rootFiles.length === 0) {
-    console.log('⚠️  No files to archive at root level');
-    process.exit(0);
-  }
-  
   const args = process.argv.slice(2);
   const setFavorite = args.includes('--setfavorite');
   const useDelta = args.includes('--usedelta');
-  const description = args.filter(arg => !arg.startsWith('--')).join(' ') || '';
+  const useGitignore = args.includes('--gitignore');
+  
+  // Parse gitignore if requested
+  let gitignorePatterns = null;
+  let gitignorePath = null;
+  
+  if (useGitignore) {
+    // Cascade logic for finding .gitignore:
+    // 1. Check for custom path parameter
+    const gitignoreIndex = args.indexOf('--gitignore');
+    if (gitignoreIndex !== -1 && gitignoreIndex + 1 < args.length && !args[gitignoreIndex + 1].startsWith('--')) {
+      gitignorePath = path.resolve(cwd, args[gitignoreIndex + 1]);
+      if (!fs.existsSync(gitignorePath)) {
+        console.log(`⚠️  Specified .gitignore not found: ${gitignorePath}`);
+        gitignorePath = null;
+      }
+    }
+    
+    // 2. Check root directory
+    if (!gitignorePath) {
+      const rootGitignore = path.join(cwd, '.gitignore');
+      if (fs.existsSync(rootGitignore)) {
+        gitignorePath = rootGitignore;
+      }
+    }
+    
+    // 3. Check installation directory
+    if (!gitignorePath) {
+      const installGitignore = path.join(__dirname, '.gitignore');
+      if (fs.existsSync(installGitignore)) {
+        gitignorePath = installGitignore;
+      }
+    }
+    
+    if (gitignorePath) {
+      gitignorePatterns = parseGitignore(gitignorePath);
+      console.log(`📋 Using .gitignore: ${gitignorePath}`);
+      console.log(`   ${gitignorePatterns.length} pattern(s) loaded\n`);
+    } else {
+      console.log(`⚠️  No .gitignore found (checked: parameter, root, installation)`);
+      console.log('   Continuing without gitignore filtering...\n');
+    }
+  }
+  
+  const description = args.filter(arg => !arg.startsWith('--') && arg !== args[args.indexOf('--gitignore') + 1]).join(' ') || '';
+  
+  const rootFiles = getRootFiles(cwd, gitignorePatterns);
+  const allRootFiles = getRootFiles(cwd); // For cleanup
+  const excludedFiles = allRootFiles.filter(f => !rootFiles.includes(f));
+  
+  if (rootFiles.length === 0) {
+    console.log('⚠️  No files to archive at root level');
+    if (excludedFiles.length > 0) {
+      console.log(`   (${excludedFiles.length} file(s) excluded by .gitignore)`);
+    }
+    process.exit(0);
+  }
+  
+  if (excludedFiles.length > 0) {
+    console.log(`🚫 Excluded by .gitignore: ${excludedFiles.length} file(s)\n`);
+  }
   
   const archivesDir = getArchivesDir(cwd);
   const archiveNum = getNextArchiveNumber(archivesDir);
@@ -292,6 +426,23 @@ function pushMemoryWell() {
       
       console.log(`\n📦 Created IMAGE archive: ${archiveName}`);
       console.log(`   Files archived: ${rootFiles.length}`);
+      
+      // Delete excluded files if gitignore was used
+      if (useGitignore && excludedFiles.length > 0) {
+        console.log(`\n🗑️  Cleaning up excluded files...`);
+        excludedFiles.forEach(item => {
+          const itemPath = path.join(cwd, item);
+          const stat = fs.statSync(itemPath);
+          
+          if (stat.isDirectory()) {
+            fs.rmSync(itemPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(itemPath);
+          }
+          console.log(`  ✓ Deleted: ${item}`);
+        });
+        console.log(`   Removed ${excludedFiles.length} excluded file(s)`);
+      }
     } else {
       const imageArchivePath = path.join(archivesDir, firstImage);
       const imageIndex = buildFileIndex(imageArchivePath);
@@ -349,6 +500,25 @@ function pushMemoryWell() {
       console.log(`   Base image: ${firstImage}`);
       console.log(`   Files changed: ${movedCount}`);
       console.log(`   Files identical (skipped): ${skippedCount}`);
+      
+      // Delete excluded files if gitignore was used
+      if (useGitignore && excludedFiles.length > 0) {
+        console.log(`\n🗑️  Cleaning up excluded files...`);
+        excludedFiles.forEach(item => {
+          const itemPath = path.join(cwd, item);
+          if (fs.existsSync(itemPath)) {
+            const stat = fs.statSync(itemPath);
+            
+            if (stat.isDirectory()) {
+              fs.rmSync(itemPath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(itemPath);
+            }
+            console.log(`  ✓ Deleted: ${item}`);
+          }
+        });
+        console.log(`   Removed ${excludedFiles.length} excluded file(s)`);
+      }
     }
     
     // Mark as favorite if requested (create marker file)

@@ -4,6 +4,81 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Parse .gitignore file and return array of patterns
+function parseGitignore(gitignorePath) {
+  if (!fs.existsSync(gitignorePath)) {
+    return [];
+  }
+  
+  const content = fs.readFileSync(gitignorePath, 'utf8');
+  return content
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
+}
+
+// Check if a file path matches any gitignore pattern
+function matchesGitignore(filePath, patterns, rootDir) {
+  const relativePath = path.relative(rootDir, filePath);
+  
+  for (const pattern of patterns) {
+    // Handle negation patterns
+    if (pattern.startsWith('!')) {
+      const negPattern = pattern.slice(1);
+      if (matchPattern(relativePath, negPattern)) {
+        return false; // Explicitly included
+      }
+      continue;
+    }
+    
+    if (matchPattern(relativePath, pattern)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Simple pattern matching for gitignore rules
+function matchPattern(filePath, pattern) {
+  // Remove leading slash
+  if (pattern.startsWith('/')) {
+    pattern = pattern.slice(1);
+  }
+  
+  // Directory pattern (ends with /)
+  if (pattern.endsWith('/')) {
+    const dirPattern = pattern.slice(0, -1);
+    return filePath.startsWith(dirPattern + '/') || filePath === dirPattern;
+  }
+  
+  // Wildcard patterns
+  if (pattern.includes('*')) {
+    const regexPattern = pattern
+      .replace(/\./g, '\\.')
+      .replace(/\*/g, '.*');
+    const regex = new RegExp(`^${regexPattern}$`);
+    
+    // Check full path and basename
+    if (regex.test(filePath)) return true;
+    if (regex.test(path.basename(filePath))) return true;
+    
+    // Check if any parent directory matches
+    const parts = filePath.split(path.sep);
+    for (let i = 0; i < parts.length; i++) {
+      if (regex.test(parts[i])) return true;
+    }
+    
+    return false;
+  }
+  
+  // Exact match or basename match
+  return filePath === pattern || 
+         filePath.startsWith(pattern + '/') || 
+         path.basename(filePath) === pattern ||
+         filePath.split(path.sep).includes(pattern);
+}
+
 function isMemoryWell(dir) {
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
@@ -35,8 +110,13 @@ function getRootFiles(cwd) {
   });
 }
 
-function copyItem(srcPath, destPath, recursive) {
+function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, sourceRoot = null) {
   const stat = fs.lstatSync(srcPath);
+  
+  // Check gitignore filtering
+  if (gitignorePatterns && sourceRoot && matchesGitignore(srcPath, gitignorePatterns, sourceRoot)) {
+    return; // Skip this item
+  }
   
   if (stat.isDirectory()) {
     if (!recursive) {
@@ -48,7 +128,7 @@ function copyItem(srcPath, destPath, recursive) {
     const items = fs.readdirSync(srcPath);
     
     items.forEach(item => {
-      copyItem(path.join(srcPath, item), path.join(destPath, item), recursive);
+      copyItem(path.join(srcPath, item), path.join(destPath, item), recursive, gitignorePatterns, sourceRoot);
     });
   } else if (stat.isFile()) {
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
@@ -82,9 +162,52 @@ function importToMemoryWell() {
   
   const args = process.argv.slice(2);
   const sourcePath = args.find(arg => !arg.startsWith('--'));
-  const mode = args.find(arg => arg === '--merge' || arg === '--replace' || arg === '--autopush');
+  let mode = args.find(arg => arg === '--merge' || arg === '--replace' || arg === '--autopush');
   const noRecursive = args.includes('--norecursive');
   const recursive = !noRecursive;
+  const useGitignore = args.includes('--gitignore');
+  
+  // Parse gitignore if requested
+  let gitignorePatterns = null;
+  let gitignorePath = null;
+  
+  if (useGitignore) {
+    // Cascade logic for finding .gitignore:
+    // 1. Check for custom path parameter
+    const gitignoreIndex = args.indexOf('--gitignore');
+    if (gitignoreIndex !== -1 && gitignoreIndex + 1 < args.length && !args[gitignoreIndex + 1].startsWith('--')) {
+      gitignorePath = path.resolve(cwd, args[gitignoreIndex + 1]);
+      if (!fs.existsSync(gitignorePath)) {
+        console.log(`⚠️  Specified .gitignore not found: ${gitignorePath}`);
+        gitignorePath = null;
+      }
+    }
+    
+    // 2. Check root directory
+    if (!gitignorePath) {
+      const rootGitignore = path.join(cwd, '.gitignore');
+      if (fs.existsSync(rootGitignore)) {
+        gitignorePath = rootGitignore;
+      }
+    }
+    
+    // 3. Check installation directory
+    if (!gitignorePath) {
+      const installGitignore = path.join(__dirname, '.gitignore');
+      if (fs.existsSync(installGitignore)) {
+        gitignorePath = installGitignore;
+      }
+    }
+    
+    if (gitignorePath) {
+      gitignorePatterns = parseGitignore(gitignorePath);
+      console.log(`📋 Using .gitignore: ${gitignorePath}`);
+      console.log(`   ${gitignorePatterns.length} pattern(s) loaded\n`);
+    } else {
+      console.log(`⚠️  No .gitignore found (checked: parameter, root, installation)`);
+      console.log('   Continuing without gitignore filtering...\n');
+    }
+  }
   
   if (!sourcePath) {
     console.log('❌ Missing source path');
@@ -111,6 +234,51 @@ function importToMemoryWell() {
     process.exit(1);
   }
   
+  // Check if root has files and no mode specified
+  const rootFiles = getRootFiles(cwd);
+  if (!mode && rootFiles.length > 0) {
+    console.log(`\n⚠️  Root directory contains ${rootFiles.length} file(s)/folder(s)`);
+    console.log('\nChoose import mode:');
+    console.log('  1. Merge - Keep existing files and add new ones');
+    console.log('  2. Replace - Delete existing files first');
+    console.log('  3. Auto-push - Import and push automatically');
+    console.log('  4. Cancel');
+    
+    const readline = require('readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    
+    rl.question('\nEnter choice (1-4): ', (answer) => {
+      rl.close();
+      
+      const choice = answer.trim();
+      
+      if (choice === '1') {
+        mode = '--merge';
+      } else if (choice === '2') {
+        mode = '--replace';
+      } else if (choice === '3') {
+        mode = '--autopush';
+      } else if (choice === '4') {
+        console.log('\n❌ Import cancelled');
+        process.exit(0);
+      } else {
+        console.log('\n❌ Invalid choice');
+        process.exit(1);
+      }
+      
+      continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitignorePatterns);
+    });
+    
+    return;
+  }
+  
+  continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitignorePatterns);
+}
+
+function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitignorePatterns) {
   console.log(`\n📥 Importing from: ${resolvedSource}`);
   console.log(`   Mode: ${mode || '--merge (default)'}`);
   console.log(`   Recursive: ${recursive ? 'yes' : 'no'}\n`);
@@ -118,7 +286,6 @@ function importToMemoryWell() {
   try {
     // Handle replace mode
     if (mode === '--replace') {
-      const rootFiles = getRootFiles(cwd);
       if (rootFiles.length > 0) {
         deleteRootFiles(cwd, rootFiles);
       }
@@ -139,8 +306,9 @@ function importToMemoryWell() {
         console.log(`  ⊕ Skipped (exists): ${item}`);
         skippedCount++;
       } else {
-        copyItem(srcPath, destPath, recursive);
-        console.log(`  ✓ Copied: ${item}`);
+        process.stdout.write(`  📋 Copying.. ${item}`);
+        copyItem(srcPath, destPath, recursive, gitignorePatterns, resolvedSource);
+        console.log(' - Done!');
         copiedCount++;
       }
     });
