@@ -118,7 +118,7 @@ function getRootFiles(cwd) {
   });
 }
 
-function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, sourceRoot = null, mergeMode = false, fileCounter = { count: 0 }) {
+function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, sourceRoot = null, mergeMode = false, fileCounter = { count: 0 }, rootFolderName = '') {
   const stat = fs.lstatSync(srcPath);
   
   // Check gitignore filtering
@@ -136,7 +136,7 @@ function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, source
     const items = fs.readdirSync(srcPath);
     
     items.forEach(item => {
-      copyItem(path.join(srcPath, item), path.join(destPath, item), recursive, gitignorePatterns, sourceRoot, mergeMode, fileCounter);
+      copyItem(path.join(srcPath, item), path.join(destPath, item), recursive, gitignorePatterns, sourceRoot, mergeMode, fileCounter, rootFolderName);
     });
   } else if (stat.isFile()) {
     // In merge mode, skip if file exists and is identical
@@ -154,8 +154,8 @@ function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, source
     // Show progress animation
     fileCounter.count++;
     const fileName = path.basename(srcPath);
-    const displayName = fileName.length > 64 ? fileName.substring(0, 61) + '...' : fileName.padEnd(64, ' ');
-    process.stdout.write(`\r  📋 Copying.. ${fileCounter.count} - ${displayName}`);
+    const displayName = fileName.length > 50 ? fileName.substring(0, 47) + '...' : fileName.padEnd(50, ' ');
+    process.stdout.write(`\r  📋 Copying... ${rootFolderName} - ${fileCounter.count} - ${displayName}`);
   }
 }
 
@@ -381,7 +381,7 @@ function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitigno
       const srcPath = path.join(resolvedSource, item);
       const destPath = path.join(cwd, item);
       
-      copyItem(srcPath, destPath, recursive, gitignorePatterns, resolvedSource, isMergeMode, fileCounter);
+      copyItem(srcPath, destPath, recursive, gitignorePatterns, resolvedSource, isMergeMode, fileCounter, item);
     });
     
     // Clear progress line and show completion
