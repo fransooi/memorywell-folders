@@ -229,19 +229,58 @@ function findInMemoryWell() {
   console.log(`\n🔍 Found ${results.length} matching archive(s):\n`);
   
   results.forEach((result, idx) => {
-    console.log(`${idx + 1}. ${result.archive}`);
+    const fileCount = result.files ? ` (${result.files.length} file${result.files.length > 1 ? 's' : ''})` : '';
+    console.log(`${idx + 1}. ${result.archive}${fileCount}`);
+  });
+  
+  // Interactive prompt to open folder
+  console.log('\nOpen Finder on folder? Enter number (or press Enter to quit): ');
+  
+  const readline = require('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  
+  rl.question('', (answer) => {
+    rl.close();
     
-    if (result.files) {
-      console.log(`   Matching files (${result.files.length}):`);
-      result.files.slice(0, 5).forEach(file => {
-        console.log(`     - ${file}`);
-      });
-      if (result.files.length > 5) {
-        console.log(`     ... and ${result.files.length - 5} more`);
-      }
+    if (!answer || answer.trim() === '') {
+      process.exit(0);
     }
     
-    console.log(`   To restore: pop ${result.archive}\n`);
+    const num = parseInt(answer.trim());
+    
+    if (isNaN(num) || num < 1 || num > results.length) {
+      console.log('❌ Invalid number');
+      process.exit(1);
+    }
+    
+    const selectedArchive = results[num - 1].archive;
+    const archivePath = path.join(archivesDir, selectedArchive);
+    
+    console.log(`\n📂 Opening: ${selectedArchive}\n`);
+    
+    // Open folder in file explorer (cross-platform)
+    const { execSync } = require('child_process');
+    
+    try {
+      if (process.platform === 'darwin') {
+        // macOS - open Finder
+        execSync(`open "${archivePath}"`);
+      } else if (process.platform === 'win32') {
+        // Windows - open Explorer
+        execSync(`explorer "${archivePath}"`);
+      } else {
+        // Linux - try xdg-open
+        execSync(`xdg-open "${archivePath}"`);
+      }
+      console.log('✅ Folder opened in file explorer');
+    } catch (error) {
+      console.error('❌ Could not open folder:', error.message);
+      console.log(`   Path: ${archivePath}`);
+      process.exit(1);
+    }
   });
 }
 
