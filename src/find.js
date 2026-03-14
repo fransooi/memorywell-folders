@@ -5,8 +5,20 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 function isMemoryWell(dir) {
-  const requiredDirs = ['00-folders', '01-last-week', '02-last-month', '03-last-year', '04-before', '05-favorite'];
+  // Check for --nolinks mode (single directory)
+  if (fs.existsSync(path.join(dir, '00-memorywell'))) {
+    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+  }
+  // Check for full mode (with time-based links)
+  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
+}
+
+function getArchivesDir(cwd) {
+  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
+    return path.join(cwd, '00-memorywell', 'folders');
+  }
+  return path.join(cwd, '05-folders');
 }
 
 function parseDate(dateStr) {
@@ -135,7 +147,7 @@ function findInMemoryWell() {
     }
   }
   
-  const archivesDir = path.join(cwd, '00-folders');
+  const archivesDir = getArchivesDir(cwd);
   
   if (!fs.existsSync(archivesDir)) {
     console.log('⚠️  No archives directory found');

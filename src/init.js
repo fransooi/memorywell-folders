@@ -5,7 +5,12 @@ const path = require('path');
 const os = require('os');
 
 function isMemoryWell(dir) {
-  const requiredDirs = ['00-folders', '01-last-week', '02-last-month', '03-last-year', '04-before', '05-favorite'];
+  // Check for --nolinks mode (single directory)
+  if (fs.existsSync(path.join(dir, '00-memorywell'))) {
+    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+  }
+  // Check for full mode (with time-based links)
+  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
 }
 
@@ -83,22 +88,33 @@ function initMemoryWell() {
   const cwd = process.cwd();
   const args = process.argv.slice(2);
   const useGUI = args.includes('--gui');
+  const noLinks = args.includes('--nolinks');
   
   if (isMemoryWell(cwd)) {
     console.log('❌ This directory is already a MemoryWell');
     process.exit(1);
   }
   
-  const dirs = ['00-folders', '01-last-week', '02-last-month', '03-last-year', '04-before', '05-favorite'];
-  
   try {
-    dirs.forEach(dir => {
-      const dirPath = path.join(cwd, dir);
-      fs.mkdirSync(dirPath, { recursive: true });
-      console.log(`✓ Created ${dir}/`);
-    });
-    
-    console.log('\n✅ MemoryWell initialized successfully!');
+    if (noLinks) {
+      // Simple mode: only 00-memorywell/folders
+      const mainDir = path.join(cwd, '00-memorywell');
+      const foldersDir = path.join(mainDir, 'folders');
+      fs.mkdirSync(foldersDir, { recursive: true });
+      console.log('✓ Created 00-memorywell/folders/');
+      console.log('\n✅ MemoryWell initialized (simple mode - no time-based links)!');
+    } else {
+      // Full mode: time-based directories
+      const dirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+      
+      dirs.forEach(dir => {
+        const dirPath = path.join(cwd, dir);
+        fs.mkdirSync(dirPath, { recursive: true });
+        console.log(`✓ Created ${dir}/`);
+      });
+      
+      console.log('\n✅ MemoryWell initialized successfully!');
+    }
     
     if (useGUI) {
       console.log('\n📱 Creating GUI applications...');
@@ -108,7 +124,7 @@ function initMemoryWell() {
     }
     
     console.log('\nYou can now use:');
-    console.log('  - mwpush: Archive files from root to 00-folders');
+    console.log('  - mwpush: Archive files from root');
     console.log('  - mwpop: Restore an archive to root');
     console.log('  - mwfind: Search through archives');
     

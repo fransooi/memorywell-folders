@@ -4,8 +4,38 @@ const fs = require('fs');
 const path = require('path');
 
 function isMemoryWell(dir) {
-  const requiredDirs = ['00-folders', '01-last-week', '02-last-month', '03-last-year', '04-before', '05-favorite'];
+  // Check for --nolinks mode (single directory)
+  if (fs.existsSync(path.join(dir, '00-memorywell'))) {
+    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+  }
+  // Check for full mode (with time-based links)
+  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
+}
+
+function getArchivesDir(cwd) {
+  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
+    return path.join(cwd, '00-memorywell', 'folders');
+  }
+  return path.join(cwd, '05-folders');
+}
+
+function getFavoritesDir(cwd) {
+  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
+    return null; // No favorites in simple mode
+  }
+  return path.join(cwd, '04-favorites');
+}
+
+function getTimeDirs(cwd) {
+  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
+    return []; // No time-based links in simple mode
+  }
+  return [
+    { path: path.join(cwd, '01-last-week'), days: 7 },
+    { path: path.join(cwd, '02-last-month'), days: 30 },
+    { path: path.join(cwd, '03-last-year'), days: 365 }
+  ];
 }
 
 function getNextArchiveNumber(archivesDir) {
@@ -34,7 +64,7 @@ function formatDate(date) {
 }
 
 function getRootFiles(cwd) {
-  const protectedDirs = ['00-folders', '01-last-week', '02-last-month', '03-last-year', '04-before', '05-favorite'];
+  const protectedDirs = ['00-memorywell', '01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
   return fs.readdirSync(cwd).filter(item => {
     if (protectedDirs.includes(item)) return false;
@@ -118,14 +148,15 @@ function copyItem(srcPath, destPath) {
 }
 
 function removeSymlinks(cwd) {
-  const linkDirs = ['01-last-week', '02-last-month', '03-last-year', '04-before'];
+  const timeDirs = getTimeDirs(cwd);
   
-  linkDirs.forEach(dir => {
-    const dirPath = path.join(cwd, dir);
-    const items = fs.readdirSync(dirPath);
+  timeDirs.forEach(timeDir => {
+    if (!fs.existsSync(timeDir.path)) return;
+    
+    const items = fs.readdirSync(timeDir.path);
     
     items.forEach(item => {
-      const itemPath = path.join(dirPath, item);
+      const itemPath = path.join(timeDir.path, item);
       const stat = fs.lstatSync(itemPath);
       
       if (stat.isSymbolicLink()) {
@@ -136,41 +167,33 @@ function removeSymlinks(cwd) {
 }
 
 function createTimeBasedLinks(cwd, archiveName, archiveDate) {
+  const timeDirs = getTimeDirs(cwd);
+  if (timeDirs.length === 0) return; // No time-based links in simple mode
+  
   const now = new Date();
   const archiveTime = archiveDate.getTime();
   const nowTime = now.getTime();
-  
-  const oneWeek = 7 * 24 * 60 * 60 * 1000;
-  const oneMonth = 30 * 24 * 60 * 60 * 1000;
-  const oneYear = 365 * 24 * 60 * 60 * 1000;
-  
   const diff = nowTime - archiveTime;
   
-  const archivePath = path.join(cwd, '00-folders', archiveName);
+  const archivesDir = getArchivesDir(cwd);
+  const archivePath = path.join(archivesDir, archiveName);
   
-  if (diff <= oneWeek) {
-    const linkPath = path.join(cwd, '01-last-week', archiveName);
-    fs.symlinkSync(archivePath, linkPath);
-  }
+  const oneDayMs = 24 * 60 * 60 * 1000;
   
-  if (diff <= oneMonth) {
-    const linkPath = path.join(cwd, '02-last-month', archiveName);
-    fs.symlinkSync(archivePath, linkPath);
-  }
-  
-  if (diff <= oneYear) {
-    const linkPath = path.join(cwd, '03-last-year', archiveName);
-    fs.symlinkSync(archivePath, linkPath);
-  }
-  
-  if (diff > oneYear) {
-    const linkPath = path.join(cwd, '04-before', archiveName);
-    fs.symlinkSync(archivePath, linkPath);
-  }
+  timeDirs.forEach(timeDir => {
+    const maxDiff = timeDir.days * oneDayMs;
+    if (diff <= maxDiff) {
+      const linkPath = path.join(timeDir.path, archiveName);
+      fs.symlinkSync(archivePath, linkPath);
+    }
+  });
 }
 
 function updateAllLinks(cwd) {
-  const archivesDir = path.join(cwd, '00-folders');
+  const timeDirs = getTimeDirs(cwd);
+  if (timeDirs.length === 0) return; // No time-based links in simple mode
+  
+  const archivesDir = getArchivesDir(cwd);
   
   if (!fs.existsSync(archivesDir)) return;
   
@@ -181,17 +204,11 @@ function updateAllLinks(cwd) {
     if (!match) return;
     
     const dateStr = match[1];
-    const timeStr = match[2];
-    
     const year = parseInt(dateStr.substring(0, 4));
     const month = parseInt(dateStr.substring(4, 6)) - 1;
     const day = parseInt(dateStr.substring(6, 8));
-    const hours = parseInt(timeStr.substring(0, 2));
-    const minutes = parseInt(timeStr.substring(2, 4));
-    const seconds = parseInt(timeStr.substring(4, 6));
     
-    const archiveDate = new Date(year, month, day, hours, minutes, seconds);
-    
+    const archiveDate = new Date(year, month, day);
     createTimeBasedLinks(cwd, archiveName, archiveDate);
   });
 }
@@ -216,7 +233,7 @@ function pushMemoryWell() {
   const useDelta = args.includes('--usedelta');
   const description = args.filter(arg => !arg.startsWith('--')).join(' ') || '';
   
-  const archivesDir = path.join(cwd, '00-folders');
+  const archivesDir = getArchivesDir(cwd);
   const archiveNum = getNextArchiveNumber(archivesDir);
   const now = new Date();
   const dateStr = formatDate(now);
@@ -311,26 +328,21 @@ function pushMemoryWell() {
     
     console.log('🔗 Updated time-based links');
     
-    if (setFavorite) {
-      const favoriteDir = path.join(cwd, '05-favorite');
-      const favoriteLinkPath = path.join(favoriteDir, archiveName);
-      fs.symlinkSync(archivePath, favoriteLinkPath);
+    const favoritesDir = getFavoritesDir(cwd);
+    
+    if (favoritesDir) {
+      if (setFavorite) {
+        const favoriteLinkPath = path.join(favoritesDir, archiveName);
+        fs.symlinkSync(archivePath, favoriteLinkPath);
+        console.log('⭐ Marked as favorite');
+      }
       
-      const lastLinkPath = path.join(favoriteDir, '00-last');
+      const lastLinkPath = path.join(favoritesDir, '00-last');
       if (fs.existsSync(lastLinkPath)) {
         fs.unlinkSync(lastLinkPath);
       }
       fs.symlinkSync(archivePath, lastLinkPath);
-      
-      console.log('⭐ Marked as favorite');
     }
-    
-    const favoriteDir = path.join(cwd, '05-favorite');
-    const lastLinkPath = path.join(favoriteDir, '00-last');
-    if (fs.existsSync(lastLinkPath)) {
-      fs.unlinkSync(lastLinkPath);
-    }
-    fs.symlinkSync(archivePath, lastLinkPath);
     
     console.log('\n✅ Push completed successfully!');
     

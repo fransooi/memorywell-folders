@@ -4,8 +4,20 @@ const fs = require('fs');
 const path = require('path');
 
 function isMemoryWell(dir) {
-  const requiredDirs = ['00-folders', '01-last-week', '02-last-month', '03-last-year', '04-before', '05-favorite'];
+  // Check for --nolinks mode (single directory)
+  if (fs.existsSync(path.join(dir, '00-memorywell'))) {
+    return fs.existsSync(path.join(dir, '00-memorywell', 'folders'));
+  }
+  // Check for full mode (with time-based links)
+  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
+}
+
+function getArchivesDir(cwd) {
+  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
+    return path.join(cwd, '00-memorywell', 'folders');
+  }
+  return path.join(cwd, '05-folders');
 }
 
 function listArchives(archivesDir) {
@@ -20,7 +32,7 @@ function listArchives(archivesDir) {
 }
 
 function getRootFiles(cwd) {
-  const protectedDirs = ['00-folders', '01-last-week', '02-last-month', '03-last-year', '04-before', '05-favorite'];
+  const protectedDirs = ['00-memorywell', '01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
   return fs.readdirSync(cwd).filter(item => {
     if (protectedDirs.includes(item)) return false;
@@ -135,7 +147,62 @@ function reconstructFromDelta(cwd, archivesDir, archiveName) {
   }
 }
 
-function popMemoryWell() {
+function createAutoArchive(cwd, description) {
+  const { execSync } = require('child_process');
+  const pushScript = path.join(__dirname, 'push.js');
+  
+  console.log('\n📦 Creating automatic archive of current files...');
+  
+  try {
+    execSync(`node "${pushScript}" "${description}"`, { 
+      cwd, 
+      stdio: 'inherit' 
+    });
+    console.log('✓ Auto-archive created\n');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to create auto-archive:', error.message);
+    return false;
+  }
+}
+
+function askPopMode() {
+  const readline = require('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  
+  return new Promise((resolve) => {
+    console.log('\n⚠️  Root directory contains files. Choose an option:');
+    console.log('  1. DELETE - Remove all current files (⚠️  DESTRUCTIVE)');
+    console.log('  2. MERGE - Keep current files + restore archive files');
+    console.log('  3. ARCHIVE - Create archive of current files first, then restore');
+    console.log('');
+    
+    rl.question('Enter choice (1/2/3) or q to cancel: ', (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase());
+    });
+  });
+}
+
+function deleteRootFiles(cwd, rootFiles) {
+  console.log('\n🗑️  Deleting current files...');
+  rootFiles.forEach(file => {
+    const filePath = path.join(cwd, file);
+    const stat = fs.statSync(filePath);
+    
+    if (stat.isDirectory()) {
+      fs.rmSync(filePath, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(filePath);
+    }
+    console.log(`  ✓ Deleted: ${file}`);
+  });
+}
+
+async function popMemoryWell() {
   const cwd = process.cwd();
   
   if (!isMemoryWell(cwd)) {
@@ -143,10 +210,12 @@ function popMemoryWell() {
     process.exit(1);
   }
   
-  const archiveName = process.argv[2];
+  const args = process.argv.slice(2);
+  const archiveName = args.find(arg => !arg.startsWith('--'));
+  const mode = args.find(arg => arg.startsWith('--mode='))?.split('=')[1];
   
   if (!archiveName) {
-    const archivesDir = path.join(cwd, '00-folders');
+    const archivesDir = getArchivesDir(cwd);
     const archives = listArchives(archivesDir);
     
     if (archives.length === 0) {
@@ -163,7 +232,8 @@ function popMemoryWell() {
     process.exit(0);
   }
   
-  const archivePath = path.join(cwd, '00-folders', archiveName);
+  const archivesDir = getArchivesDir(cwd);
+  const archivePath = path.join(archivesDir, archiveName);
   
   if (!fs.existsSync(archivePath)) {
     console.log(`❌ Archive not found: ${archiveName}`);
@@ -173,14 +243,44 @@ function popMemoryWell() {
   const rootFiles = getRootFiles(cwd);
   
   if (rootFiles.length > 0) {
-    console.log('❌ Root directory is not empty. Please push or remove files first.');
-    console.log('Files at root:');
+    let chosenMode = mode;
+    
+    if (!chosenMode) {
+      const choice = await askPopMode();
+      
+      if (choice === 'q' || choice === '') {
+        console.log('❌ Operation cancelled');
+        process.exit(0);
+      }
+      
+      if (choice === '1') chosenMode = 'delete';
+      else if (choice === '2') chosenMode = 'merge';
+      else if (choice === '3') chosenMode = 'archive';
+      else {
+        console.log('❌ Invalid choice');
+        process.exit(1);
+      }
+    }
+    
+    console.log('\nFiles currently at root:');
     rootFiles.forEach(file => console.log(`   - ${file}`));
-    process.exit(1);
+    
+    if (chosenMode === 'delete') {
+      deleteRootFiles(cwd, rootFiles);
+    } else if (chosenMode === 'archive') {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const success = createAutoArchive(cwd, `auto-backup-before-pop-${timestamp}`);
+      if (!success) {
+        console.log('❌ Cannot proceed without successful archive');
+        process.exit(1);
+      }
+    } else if (chosenMode === 'merge') {
+      console.log('\n📝 MERGE mode: Current files will be kept, archive files will be added/overwritten');
+    }
   }
   
   try {
-    const archivesDir = path.join(cwd, '00-folders');
+    const archivesDir = getArchivesDir(cwd);
     
     if (isArchiveDelta(archiveName)) {
       reconstructFromDelta(cwd, archivesDir, archiveName);
@@ -189,6 +289,7 @@ function popMemoryWell() {
       console.log('\n✅ Pop completed successfully!');
     } else {
       const archiveItems = fs.readdirSync(archivePath);
+      let restoredCount = 0;
       
       archiveItems.forEach(item => {
         if (item.startsWith('.memorywell')) return;
@@ -196,14 +297,21 @@ function popMemoryWell() {
         const srcPath = path.join(archivePath, item);
         const destPath = path.join(cwd, item);
         
-        fs.renameSync(srcPath, destPath);
-        console.log(`  ✓ Restored: ${item}`);
+        if (mode === 'merge' && fs.existsSync(destPath)) {
+          console.log(`  ⊕ Skipped (exists): ${item}`);
+        } else {
+          fs.renameSync(srcPath, destPath);
+          console.log(`  ✓ Restored: ${item}`);
+          restoredCount++;
+        }
       });
       
-      fs.rmdirSync(archivePath);
+      if (mode !== 'merge') {
+        fs.rmdirSync(archivePath);
+      }
       
       console.log(`\n📂 Restored IMAGE archive: ${archiveName}`);
-      console.log(`   Files restored: ${archiveItems.length}`);
+      console.log(`   Files restored: ${restoredCount}`);
       console.log('\n✅ Pop completed successfully!');
     }
     
@@ -213,4 +321,6 @@ function popMemoryWell() {
   }
 }
 
-popMemoryWell();
+(async () => {
+  await popMemoryWell();
+})();

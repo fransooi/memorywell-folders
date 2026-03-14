@@ -15,6 +15,7 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 - ⭐ Built-in favorites system
 - 🖱️ Optional GUI with native dialogs
 - 🚀 One-command installation
+- 🎯 Two modes: Full (with time links) or Simple (single folder)
 
 ---
 
@@ -26,9 +27,12 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
   - [macOS](#macos)
   - [Linux](#linux)
 - [How It Works](#how-it-works)
+  - [Full Mode (Default)](#full-mode-default)
+  - [Simple Mode (--nolinks)](#simple-mode---nolinks)
 - [Usage](#usage)
   - [CLI Commands](#cli-commands)
   - [GUI Mode](#gui-mode)
+  - [Pop Safety Options](#pop-safety-options)
 - [Examples](#examples)
 - [Future Versions](#future-versions)
 - [Author](#author)
@@ -44,11 +48,14 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 # or
 .\install.ps1  # Windows
 
-# Initialize a folder
+# Initialize a folder (full mode with time-based links)
 cd my-project
 mwinit
 
-# Add some files and archive them
+# OR initialize in simple mode (single folder, perfect for development)
+mwinit --nolinks
+
+# Archive your work
 echo "Hello World" > file.txt
 mwpush "first version"
 
@@ -66,127 +73,88 @@ mwpop 00-20260314-123456-IMAGE-first-version
 
 ### Windows
 
-**Requirements:** Node.js 12+ and PowerShell 5.1+
-
-```powershell
-# Download MemoryWell
-git clone https://github.com/FrancoisLionet/memorywell-folders.git
-cd memorywell-folders
-
-# Run installation script
-.\install.ps1
-
-# Restart your terminal
-# Commands are now available: mwinit, mwpush, mwpop, mwfind, mwsetfavorite
-```
-
-The installer:
-- Installs MemoryWell to `%USERPROFILE%\.memorywell`
-- Creates commands in `%USERPROFILE%\.local\bin`
-- Automatically adds to PATH
-
-**Uninstall:**
-```powershell
-.\uninstall.ps1
-```
+1. **Prerequisites:** Node.js installed
+2. **Install:**
+   ```powershell
+   git clone https://github.com/FrancoisLionet/memorywell-folders.git
+   cd memorywell-folders
+   .\install.ps1
+   ```
+3. **Verify:** Open a new PowerShell window and run `mwinit --help`
 
 ### macOS
 
-**Requirements:** Node.js 12+
-
-```bash
-# Download MemoryWell
-git clone https://github.com/FrancoisLionet/memorywell-folders.git
-cd memorywell-folders
-
-# Run installation script
-./install.sh
-
-# Add to PATH if needed (installer will tell you)
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-
-# Commands are now available: mwinit, mwpush, mwpop, mwfind, mwsetfavorite
-```
-
-**Uninstall:**
-```bash
-./uninstall.sh
-```
+1. **Prerequisites:** Node.js installed
+2. **Install:**
+   ```bash
+   git clone https://github.com/FrancoisLionet/memorywell-folders.git
+   cd memorywell-folders
+   chmod +x install.sh
+   ./install.sh
+   ```
+3. **Verify:** Open a new terminal and run `mwinit --help`
 
 ### Linux
 
-**Requirements:** Node.js 12+ (and optionally `zenity` for GUI)
-
-```bash
-# Download MemoryWell
-git clone https://github.com/FrancoisLionet/memorywell-folders.git
-cd memorywell-folders
-
-# Run installation script
-./install.sh
-
-# Add to PATH if needed (installer will tell you)
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Optional: Install zenity for GUI support
-sudo apt-get install zenity  # Ubuntu/Debian
-sudo dnf install zenity       # Fedora/RHEL
-
-# Commands are now available: mwinit, mwpush, mwpop, mwfind, mwsetfavorite
-```
-
-**Uninstall:**
-```bash
-./uninstall.sh
-```
+Same as macOS. The installer will:
+- Copy scripts to `~/.memorywell`
+- Create command wrappers in `~/.local/bin`
+- Add to PATH if needed
 
 ---
 
-## 🔧 How It Works
+## 🎨 How It Works
 
-### Folder Structure
+MemoryWell offers two modes to suit different workflows:
 
-When you initialize a folder with `mwinit`, MemoryWell creates this structure:
+### Full Mode (Default)
 
+Perfect for projects where you want automatic time-based organization.
+
+**Structure created:**
 ```
-my-project/
-├── 00-folders/          # All archives stored here
-│   ├── 00-20260314-120000-IMAGE-initial/
-│   ├── 01-20260314-130000-DELTA-update/
-│   └── 02-20260314-140000-IMAGE-final/
-├── 01-last-week/        # Symlinks to archives from last week
-├── 02-last-month/       # Symlinks to archives from last month
-├── 03-last-year/        # Symlinks to archives from last year
-├── 04-before/           # Symlinks to older archives
-└── 05-favorite/         # Favorite archives + 00-last link
-    ├── 00-last -> ../00-folders/02-...  # Always points to latest
-    └── 00-20260314-120000-IMAGE-initial -> ...
+your-project/
+├── 01-last-week/      # Symlinks to archives < 7 days old
+├── 02-last-month/     # Symlinks to archives < 30 days old
+├── 03-last-year/      # Symlinks to archives < 365 days old
+├── 04-favorites/      # Your favorite archives + 00-last link
+└── 05-folders/        # ALL archives (actual files)
 ```
 
-### Archive Types
+**Features:**
+- ✅ Time-based navigation
+- ✅ Favorites system
+- ✅ Automatic link management
+- ✅ Easy browsing by date
 
-**IMAGE Archives** (default):
-- Complete snapshot of all files
-- Created automatically if no IMAGE exists
-- Format: `XX-YYYYMMDD-HHMMSS-IMAGE-description`
+**Initialize:**
+```bash
+mwinit
+```
 
-**DELTA Archives** (`--usedelta`):
-- Only stores changed files (compared to first IMAGE)
-- Saves disk space
-- Automatically reconstructed when restored
-- Format: `XX-YYYYMMDD-HHMMSS-DELTA-description`
+### Simple Mode (--nolinks)
 
-### Time-Based Organization
+Perfect for development where you want minimal visual clutter.
 
-MemoryWell automatically creates symlinks based on archive age:
-- **01-last-week/**: Archives ≤ 7 days old
-- **02-last-month/**: Archives ≤ 30 days old
-- **03-last-year/**: Archives ≤ 365 days old
-- **04-before/**: Archives > 365 days old
+**Structure created:**
+```
+your-project/
+└── 00-memorywell/
+    └── folders/       # ALL archives (actual files)
+```
 
-Browse these folders to quickly find archives by time period!
+**Features:**
+- ✅ Single directory
+- ✅ No visual clutter
+- ✅ Faster operations
+- ✅ All core features work
+- ❌ No time-based links
+- ❌ No favorites
+
+**Initialize:**
+```bash
+mwinit --nolinks
+```
 
 ---
 
@@ -194,116 +162,184 @@ Browse these folders to quickly find archives by time period!
 
 ### CLI Commands
 
-#### `mwinit [--gui]`
-Initialize a folder as a MemoryWell.
+#### `mwinit [--gui] [--nolinks]`
 
+Initialize a directory as a MemoryWell.
+
+**Options:**
+- `--gui`: Create clickable GUI applications
+- `--nolinks`: Simple mode (single folder, no time-based links)
+
+**Examples:**
 ```bash
-cd my-folder
-mwinit           # CLI only
-mwinit --gui     # Create clickable GUI apps
+mwinit                    # Full mode
+mwinit --nolinks          # Simple mode
+mwinit --gui              # Full mode with GUI apps
+mwinit --gui --nolinks    # Simple mode with GUI apps
 ```
 
-#### `mwpush [--usedelta] [--setfavorite] [description]`
-Archive current files.
+#### `mwpush [--usedelta] [--setfavorite] <description>`
 
+Archive all files from the root directory.
+
+**Options:**
+- `--usedelta`: Save only changed files (incremental backup)
+- `--setfavorite`: Mark as favorite (full mode only)
+- `<description>`: Optional description for the archive
+
+**Examples:**
 ```bash
-mwpush "my archive"                    # Full IMAGE backup
-mwpush --usedelta "incremental"        # DELTA backup (saves space)
-mwpush --setfavorite "important"       # Mark as favorite
-mwpush --usedelta --setfavorite "v2"   # Combine options
+mwpush "initial version"
+mwpush --usedelta "quick save"
+mwpush --setfavorite "milestone v1.0"
 ```
 
-**What happens:**
-1. All files at root are moved to a new archive in `00-folders/`
-2. Root becomes empty
-3. Time-based symlinks are updated
-4. `05-favorite/00-last` points to this archive
+**Archive naming:**
+- `00-YYYYMMDD-HHMMSS-IMAGE-description` (full archive)
+- `00-YYYYMMDD-HHMMSS-DELTA-description` (incremental)
 
-#### `mwpop [archive-name]`
-Restore an archive to root.
+#### `mwpop [--mode=delete|merge|archive] <archive-name>`
 
+Restore an archive to the root directory.
+
+**Safety options** (if root has files):
+- `delete`: Remove current files (⚠️ destructive)
+- `merge`: Keep current files + restore archive
+- `archive`: Create backup first, then restore
+
+**Examples:**
 ```bash
-mwpop                                    # List available archives
-mwpop 00-20260314-120000-IMAGE-initial   # Restore specific archive
+mwpop 00-20260314-123456-IMAGE-first-version
+mwpop --mode=archive 00-20260314-123456-IMAGE-first-version
 ```
 
-**DELTA reconstruction:**
-If you restore a DELTA archive, MemoryWell automatically:
-1. Copies the base IMAGE
-2. Applies all intermediate DELTAs
-3. Shows the reconstruction chain
-
-**Note:** Root must be empty before restoring.
+**Interactive mode:**
+If files exist at root and no `--mode` is specified, you'll be prompted to choose.
 
 #### `mwfind [options]`
+
 Search through archives.
 
+**Options:**
+- `--name <pattern>`: Search by archive name
+- `--date <YYYYMMDD>`: Search by date
+- `--before <YYYYMMDD>`: Archives before date
+- `--after <YYYYMMDD>`: Archives after date
+- `--ext <extension>`: Search by file extension
+- `--contains <text>`: Search file contents
+
+**Examples:**
 ```bash
-mwfind --date 20260314                  # Archives from specific date
-mwfind --from 20260301 --to 20260314    # Date range
-mwfind --name "important"               # Name contains text
-mwfind --ext .js                        # Files with extension
-mwfind --contains "TODO"                # Files containing text
+mwfind --name "milestone"
+mwfind --date 20260314
+mwfind --ext .js
+mwfind --contains "TODO"
 ```
 
-#### `mwsetfavorite [archive-name]`
-Toggle favorite status.
+#### `mwsetfavorite <archive-name>`
 
+Toggle favorite status of an archive (full mode only).
+
+**Examples:**
 ```bash
-mwsetfavorite                                  # List archives with ⭐
-mwsetfavorite 00-20260314-120000-IMAGE-initial # Toggle favorite
+mwsetfavorite 00-20260314-123456-IMAGE-first-version
 ```
 
 ### GUI Mode
 
-Enable GUI with `mwinit --gui` to create clickable applications:
+When initialized with `--gui`, MemoryWell creates clickable applications:
 
-**Windows:** Creates `.bat` scripts (double-click to run)
-**macOS:** Creates `.app` bundles (native applications)
-**Linux:** Creates `.sh` scripts (requires zenity)
+**macOS:**
+- `MemoryWell-Push.app`
+- `MemoryWell-Pop.app`
+- `MemoryWell-Find.app`
+- `MemoryWell-SetFavorite.app`
 
-**GUI Applications:**
-- 📦 **MemoryWell-Push** - Archive with dialogs
-- 📂 **MemoryWell-Pop** - Restore with selection
-- 🔍 **MemoryWell-Find** - Search with dialogs
-- ⭐ **MemoryWell-SetFavorite** - Manage favorites
+**Linux:**
+- `memorywell-push.sh`
+- `memorywell-pop.sh`
+- `memorywell-find.sh`
+- `memorywell-setfavorite.sh`
 
-Simply double-click and follow the native dialogs!
+**Windows:**
+- Same as Linux (`.sh` files work with Git Bash)
+
+**Features:**
+- Native system dialogs (AppleScript, Zenity, PowerShell)
+- No terminal needed
+- Same functionality as CLI
+
+### Pop Safety Options
+
+When restoring an archive with `mwpop`, if files exist at root:
+
+**1. DELETE Mode**
+```
+⚠️  Removes all current files
+✅ Clean restore
+❌ Destructive
+```
+
+**2. MERGE Mode**
+```
+✅ Keeps current files
+✅ Adds archive files
+⚠️  Overwrites if same name
+```
+
+**3. ARCHIVE Mode** (Recommended)
+```
+✅ Creates backup first
+✅ Safe restore
+✅ No data loss
+```
+
+**CLI:**
+```bash
+mwpop --mode=archive 00-20260314-123456-IMAGE-version
+```
+
+**GUI:**
+Interactive dialogs guide you through the choice.
 
 ---
 
 ## 💡 Examples
 
-### Basic Workflow
+### Development Workflow (Simple Mode)
 
 ```bash
-# 1. Initialize
+# Initialize simple mode
+cd my-app
+mwinit --nolinks
+
+# Quick saves during development
+mwpush "working on login"
+mwpush --usedelta "fixed bug"
+mwpush --usedelta "added tests"
+
+# Restore previous version
+mwpop 00-20260314-120000-IMAGE-working-on-login
+```
+
+### Project Workflow (Full Mode)
+
+```bash
+# Initialize with time-based organization
 cd my-project
 mwinit
 
-# 2. Work normally
-echo "Version 1" > app.js
-mkdir data
-echo "Config" > data/config.json
+# Create milestones
+mwpush --setfavorite "v1.0 release"
+mwpush "daily backup"
+mwpush --usedelta "quick save"
 
-# 3. Archive when done (first IMAGE)
-mwpush "initial version"
+# Browse by time
+ls 01-last-week/     # Recent work
+ls 04-favorites/     # Important versions
 
-# 4. Continue working
-echo "Version 2" > app.js
-echo "New feature" > feature.js
-
-# 5. Archive with delta (saves space)
-mwpush --usedelta "added feature"
-
-# 6. Mark important version as favorite
-mwpush --usedelta --setfavorite "release v1.0"
-
-# 7. Search archives
-mwfind --name "release"
-
-# 8. Restore a version
-mwpop 02-20260314-140000-DELTA-release-v1.0
+# Restore with safety
+mwpop --mode=archive 00-20260314-100000-IMAGE-v1.0-release
 ```
 
 ### GUI Workflow
@@ -313,63 +349,42 @@ mwpop 02-20260314-140000-DELTA-release-v1.0
 cd my-project
 mwinit --gui
 
-# Now you have clickable apps in the folder:
-# - Double-click MemoryWell-Push.app
-# - Fill in the dialogs
-# - Done!
-```
-
-### Favorites and Quick Access
-
-```bash
-# The 05-favorite/ folder is special:
-ls -l 05-favorite/00-last    # Always points to latest archive
-cd 05-favorite               # Browse your favorite archives
+# Now just double-click:
+# - MemoryWell-Push.app to archive
+# - MemoryWell-Pop.app to restore
+# - MemoryWell-Find.app to search
 ```
 
 ---
 
 ## 🔮 Future Versions
 
-Planned features for upcoming releases:
-
-### v1.1 - Compression
-- Automatic compression of old archives
-- `mwpush --compress` option
-- Configurable age threshold
-
-### v1.2 - FADE System
-- Automatic expiration of old archives
+### v1.1 - Compression & Cleanup
+- Automatic ZIP compression for old archives
 - Configurable retention policies
-- Actions: compress, move to external, delete
+- Archive fade (auto-delete after X days)
 
-### v1.3 - External Backup
-- Mirror to external drives
-- `mwpush --mirror /Volumes/Backup`
-- Automatic sync on push
-
-### v1.4 - Integrity
-- Archive verification
-- `mwverify` command
-- Checksum validation
+### v1.2 - Remote Backup
+- Sync to external drives
+- Cloud storage integration
+- Automatic backup scheduling
 
 ### v2.0 - Advanced Features
-- Cloud storage backends
-- Encryption support
-- Multi-user collaboration
-- Web interface
-
-**Have suggestions?** Open an issue on GitHub!
+- Multi-project management
+- Archive comparison tools
+- Visual timeline browser
+- Conflict resolution UI
 
 ---
 
 ## 👤 Author
 
-**François Lionet**
+**François Lionet**  
+Software Creator
 
-- Website: [francoislio.net](https://francoislio.net)
-- Email: francoas@pm.me
-- GitHub: [@FrancoisLionet](https://github.com/FrancoisLionet)
+- 🌐 Website: [francoislio.net](https://francoislio.net)
+- 📧 Email: francoas@pm.me
+- 💻 GitHub: [@FrancoisLionet](https://github.com/FrancoisLionet)
 
 ---
 
@@ -379,7 +394,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -391,10 +406,16 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## ⭐ Star History
+## 🙏 Acknowledgments
 
-If you find MemoryWell useful, please consider giving it a star on GitHub!
+MemoryWell was created to solve the simple problem of "I want to save my work without complex tools." It's designed to be visible, simple, and reliable.
+
+**Philosophy:**
+- Simple > Complex
+- Visible > Hidden
+- Folders > Databases
+- Your files, your control
 
 ---
 
-**MemoryWell** - Simple backups, visible folders, automatic organization.
+**Made with ❤️ by François Lionet | 2026**
