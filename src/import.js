@@ -154,7 +154,8 @@ function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, source
     // Show progress animation
     fileCounter.count++;
     const fileName = path.basename(srcPath);
-    process.stdout.write(`\r  📋 Copying.. ${fileCounter.count} - ${fileName}`);
+    const displayName = fileName.length > 64 ? fileName.substring(0, 61) + '...' : fileName.padEnd(64, ' ');
+    process.stdout.write(`\r  📋 Copying.. ${fileCounter.count} - ${displayName}`);
   }
 }
 
