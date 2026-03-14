@@ -614,6 +614,7 @@ function pushMemoryWell() {
             if (!filesAreIdentical(dirFiles[relPath], imageIndex[fullRelPath])) {
               fs.mkdirSync(path.dirname(fileDestPath), { recursive: true });
               fs.renameSync(fileSrcPath, fileDestPath);
+              console.log(`  ✓ Moved (changed): ${fullRelPath}`);
               movedCount++;
             } else {
               skippedCount++;
