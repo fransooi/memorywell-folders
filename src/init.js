@@ -73,11 +73,12 @@ node "${scriptPath}"`;
     });
   } else if (platform === 'linux') {
     const apps = [
-      { name: 'push', script: 'gui/gui-push.js', icon: '📦' },
-      { name: 'extract', script: 'gui/gui-extract.js', icon: '📂' },
-      { name: 'find', script: 'gui/gui-find.js', icon: '🔍' },
-      { name: 'setfavorite', script: 'gui/gui-setfavorite.js', icon: '⭐' },
-      { name: 'remap', script: 'gui/gui-remap.js', icon: '🔄' }
+      { name: 'Push', script: 'gui/gui-push.js', icon: '📦' },
+      { name: 'Pop', script: 'gui/gui-pop.js', icon: '📤' },
+      { name: 'Extract', script: 'gui/gui-extract.js', icon: '📂' },
+      { name: 'Find', script: 'gui/gui-find.js', icon: '🔍' },
+      { name: 'SetFavorite', script: 'gui/gui-setfavorite.js', icon: '⭐' },
+      { name: 'Remap', script: 'gui/gui-remap.js', icon: '🔄' }
     ];
     
     apps.forEach(app => {

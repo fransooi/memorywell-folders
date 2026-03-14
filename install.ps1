@@ -47,12 +47,14 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Copy files
 Copy-Item "$SCRIPT_DIR\src\init.js" "$INSTALL_DIR\"
 Copy-Item "$SCRIPT_DIR\src\push.js" "$INSTALL_DIR\"
+Copy-Item "$SCRIPT_DIR\src\pop.js" "$INSTALL_DIR\"
 Copy-Item "$ScriptDir\src\extract.js" "$InstallDir\extract.js"
 Copy-Item "$SCRIPT_DIR\src\find.js" "$INSTALL_DIR\"
 Copy-Item "$SCRIPT_DIR\src\setfavorite.js" "$INSTALL_DIR\"
 Copy-Item "$SCRIPT_DIR\src\remap.js" "$INSTALL_DIR\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-helpers.js" "$INSTALL_DIR\gui\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-push.js" "$INSTALL_DIR\gui\"
+Copy-Item "$SCRIPT_DIR\src\gui\gui-pop.js" "$INSTALL_DIR\gui\"
 Copy-Item "$ScriptDir\src\gui\gui-extract.js" "$InstallDir\gui-extract.js"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-find.js" "$INSTALL_DIR\gui\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-setfavorite.js" "$INSTALL_DIR\gui\"
@@ -70,6 +72,11 @@ node "%USERPROFILE%\.memorywell\init.js" %*
 @echo off
 node "%USERPROFILE%\.memorywell\push.js" %*
 "@ | Out-File -FilePath "$BIN_DIR\mwpush.bat" -Encoding ASCII
+
+@"
+@echo off
+node "%USERPROFILE%\.memorywell\pop.js" %*
+"@ | Out-File -FilePath "$BIN_DIR\mwpop.bat" -Encoding ASCII
 
 @'
 @echo off

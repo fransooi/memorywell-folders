@@ -48,12 +48,14 @@ mkdir -p "$INSTALL_DIR/gui"
 
 cp "$SCRIPT_DIR/src/init.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/push.js" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/src/pop.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/extract.js" "$INSTALL_DIR/extract.js"
 cp "$SCRIPT_DIR/src/find.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/setfavorite.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/remap.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/gui/gui-helpers.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-push.js" "$INSTALL_DIR/gui/"
+cp "$SCRIPT_DIR/src/gui/gui-pop.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-extract.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-find.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-setfavorite.js" "$INSTALL_DIR/gui/"
@@ -72,6 +74,11 @@ EOF
 cat > "$BIN_DIR/mwpush" << 'EOF'
 #!/bin/bash
 node "$HOME/.memorywell/push.js" "$@"
+EOF
+
+cat > "$BIN_DIR/mwpop" << 'EOF'
+#!/bin/bash
+node "$HOME/.memorywell/pop.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwextract" << 'EOF'

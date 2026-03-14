@@ -5,6 +5,7 @@
   "bin": {
     "mw-init": "src/init.js",
     "mw-push": "src/push.js",
+    "mw-pop": "src/pop.js",
     "mw-extract": "src/extract.js",
     "mw-find": "src/find.js",
     "mw-setfavorite": "src/setfavorite.js",
