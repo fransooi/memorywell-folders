@@ -39,44 +39,76 @@ function matchesGitignore(filePath, patterns, rootDir) {
   return false;
 }
 
-// Simple pattern matching for gitignore rules
+// Simple pattern matching for gitignore rules (git-compatible)
 function matchPattern(filePath, pattern) {
-  // Remove leading slash
-  if (pattern.startsWith('/')) {
+  // Normalize path separators
+  filePath = filePath.replace(/\\/g, '/');
+  
+  // Remove leading slash from pattern
+  const isRooted = pattern.startsWith('/');
+  if (isRooted) {
     pattern = pattern.slice(1);
   }
   
   // Directory pattern (ends with /)
   if (pattern.endsWith('/')) {
     const dirPattern = pattern.slice(0, -1);
-    return filePath.startsWith(dirPattern + '/') || filePath === dirPattern;
+    
+    // Check if filePath is the directory itself or inside it
+    if (filePath === dirPattern) return true;
+    if (filePath.startsWith(dirPattern + '/')) return true;
+    
+    // If not rooted, check any path component
+    if (!isRooted) {
+      const parts = filePath.split('/');
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i] === dirPattern) return true;
+      }
+    }
+    
+    return false;
   }
   
   // Wildcard patterns
   if (pattern.includes('*')) {
     const regexPattern = pattern
       .replace(/\./g, '\\.')
-      .replace(/\*/g, '.*');
+      .replace(/\*\*/g, '§§DOUBLESTAR§§')
+      .replace(/\*/g, '[^/]*')
+      .replace(/§§DOUBLESTAR§§/g, '.*');
     const regex = new RegExp(`^${regexPattern}$`);
     
-    // Check full path and basename
+    // Check full path
     if (regex.test(filePath)) return true;
-    if (regex.test(path.basename(filePath))) return true;
     
-    // Check if any parent directory matches
-    const parts = filePath.split(path.sep);
-    for (let i = 0; i < parts.length; i++) {
-      if (regex.test(parts[i])) return true;
+    // If not rooted, check from any directory level
+    if (!isRooted) {
+      const parts = filePath.split('/');
+      for (let i = 0; i < parts.length; i++) {
+        const subPath = parts.slice(i).join('/');
+        if (regex.test(subPath)) return true;
+      }
     }
     
     return false;
   }
   
-  // Exact match or basename match
-  return filePath === pattern || 
-         filePath.startsWith(pattern + '/') || 
-         path.basename(filePath) === pattern ||
-         filePath.split(path.sep).includes(pattern);
+  // Exact match
+  if (filePath === pattern) return true;
+  if (filePath.startsWith(pattern + '/')) return true;
+  
+  // If not rooted, check basename and any path component
+  if (!isRooted) {
+    if (path.basename(filePath) === pattern) return true;
+    const parts = filePath.split('/');
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i] === pattern) return true;
+      const subPath = parts.slice(i).join('/');
+      if (subPath === pattern || subPath.startsWith(pattern + '/')) return true;
+    }
+  }
+  
+  return false;
 }
 
 function isMemoryWell(dir) {
@@ -348,7 +380,7 @@ function filesAreIdentical(file1Stats, file2Stats) {
          Math.abs(file1Stats.mtime - file2Stats.mtime) < 1000;
 }
 
-function copyItem(srcPath, destPath) {
+function copyItem(srcPath, destPath, fileCounter = { copied: 0 }, rootFolderName = '', moveMode = false) {
   const stat = fs.lstatSync(srcPath);
   
   if (stat.isDirectory()) {
@@ -356,12 +388,24 @@ function copyItem(srcPath, destPath) {
     const items = fs.readdirSync(srcPath);
     
     items.forEach(item => {
-      copyItem(path.join(srcPath, item), path.join(destPath, item));
+      copyItem(path.join(srcPath, item), path.join(destPath, item), fileCounter, rootFolderName, moveMode);
     });
   } else if (stat.isFile()) {
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
-    fs.copyFileSync(srcPath, destPath);
-    fs.utimesSync(destPath, stat.atime, stat.mtime);
+    
+    if (moveMode) {
+      fs.renameSync(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+      fs.utimesSync(destPath, stat.atime, stat.mtime);
+    }
+    
+    // Show progress animation
+    fileCounter.copied++;
+    const fileName = path.basename(srcPath);
+    const displayName = fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName.padEnd(40, ' ');
+    const action = moveMode ? 'Moving..' : 'Copying..';
+    process.stdout.write(`\r  📋 ${action} Folder: ${rootFolderName} - ${fileCounter.copied} - ${displayName}`);
   }
 }
 
@@ -378,19 +422,19 @@ Options:
   --setfavorite   Mark as favorite (only in modes with links)
   --gitignore [path]  Use .gitignore to filter files (optional custom path)
   --atdate=YYYYMMDD   Insert archive at specific date (IMAGE only)
-  --keep          Keep files at root (copy instead of move)
+  --move          Move files to archive (default: copy)
   --help          Show this help message
 
 Arguments:
   description     Optional description for the archive
 
 Examples:
-  mwpush "initial version"              # Full IMAGE archive
-  mwpush --usedelta "quick save"        # Incremental DELTA
+  mwpush "initial version"              # Full IMAGE archive (copy mode)
+  mwpush --usedelta "quick save"        # Incremental DELTA (copy mode)
   mwpush --setfavorite "milestone v1.0" # Mark as favorite
   mwpush --gitignore "clean version"    # Filter with .gitignore
   mwpush --atdate=20260301 "old backup" # Insert at March 1st, 2026
-  mwpush --keep "backup copy"           # Keep files at root (copy mode)
+  mwpush --move "final version"         # Move files (clear root)
 
 Gitignore cascade:
   1. Custom path (if specified)
@@ -420,7 +464,7 @@ function pushMemoryWell() {
   const setFavorite = args.includes('--setfavorite');
   const useDelta = args.includes('--usedelta');
   const useGitignore = args.includes('--gitignore');
-  const keepFiles = args.includes('--keep');
+  const moveMode = args.includes('--move');
   const atDateArg = args.find(arg => arg.startsWith('--atdate='));
   const atDate = atDateArg ? atDateArg.split('=')[1] : null;
   
@@ -567,21 +611,22 @@ function pushMemoryWell() {
     fs.mkdirSync(archivePath, { recursive: true });
     
     if (archiveType === 'IMAGE') {
+      const fileCounter = { copied: 0 };
+      
       rootFiles.forEach(item => {
         const srcPath = path.join(cwd, item);
         const destPath = path.join(archivePath, item);
         
-        if (keepFiles) {
-          copyItem(srcPath, destPath);
-          console.log(`  ✓ Copied: ${item}`);
-        } else {
-          fs.renameSync(srcPath, destPath);
-          console.log(`  ✓ Moved: ${item}`);
-        }
+        copyItem(srcPath, destPath, fileCounter, item, moveMode);
       });
       
+      // Clear progress line
+      if (fileCounter.copied > 0) {
+        process.stdout.write('\r' + ' '.repeat(120) + '\r');
+      }
+      
       console.log(`\n📦 Created IMAGE archive: ${archiveName}`);
-      console.log(`   Files archived: ${rootFiles.length}`);
+      console.log(`   Files archived: ${fileCounter.copied}`);
       
       // Delete excluded files if gitignore was used
       if (useGitignore && excludedFiles.length > 0) {
@@ -621,16 +666,20 @@ function pushMemoryWell() {
             
             if (!filesAreIdentical(dirFiles[relPath], imageIndex[fullRelPath])) {
               fs.mkdirSync(path.dirname(fileDestPath), { recursive: true });
-              if (keepFiles) {
+              
+              if (moveMode) {
+                fs.renameSync(fileSrcPath, fileDestPath);
+              } else {
                 fs.copyFileSync(fileSrcPath, fileDestPath);
                 const srcStat = fs.statSync(fileSrcPath);
                 fs.utimesSync(fileDestPath, srcStat.atime, srcStat.mtime);
-                console.log(`  ✓ Copied (changed): ${fullRelPath}`);
-              } else {
-                fs.renameSync(fileSrcPath, fileDestPath);
-                console.log(`  ✓ Moved (changed): ${fullRelPath}`);
               }
+              
               movedCount++;
+              const fileName = path.basename(fullRelPath);
+              const displayName = fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName.padEnd(40, ' ');
+              const action = moveMode ? 'Moving..' : 'Copying..';
+              process.stdout.write(`\r  📋 ${action} Folder: ${item} - ${movedCount} - ${displayName}`);
             } else {
               skippedCount++;
             }
@@ -638,16 +687,20 @@ function pushMemoryWell() {
         } else if (stat.isFile()) {
           if (!filesAreIdentical(currentIndex[item], imageIndex[item])) {
             const destPath = path.join(archivePath, item);
-            if (keepFiles) {
+            
+            if (moveMode) {
+              fs.renameSync(srcPath, destPath);
+            } else {
               fs.copyFileSync(srcPath, destPath);
               const srcStat = fs.statSync(srcPath);
               fs.utimesSync(destPath, srcStat.atime, srcStat.mtime);
-              console.log(`  ✓ Copied (changed): ${item}`);
-            } else {
-              fs.renameSync(srcPath, destPath);
-              console.log(`  ✓ Moved (changed): ${item}`);
             }
+            
             movedCount++;
+            const fileName = path.basename(item);
+            const displayName = fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName.padEnd(40, ' ');
+            const action = moveMode ? 'Moving..' : 'Copying..';
+            process.stdout.write(`\r  📋 ${action} Folder: ${item} - ${movedCount} - ${displayName}`);
           } else {
             skippedCount++;
           }
@@ -661,8 +714,13 @@ function pushMemoryWell() {
         created: now.toISOString()
       }, null, 2));
       
-      // Clean up root - delete all remaining files/folders (unless --keep)
-      if (!keepFiles) {
+      // Clear progress line
+      if (movedCount > 0) {
+        process.stdout.write('\r' + ' '.repeat(120) + '\r');
+      }
+      
+      // Clean up root - delete all remaining files/folders (only if --move)
+      if (moveMode) {
         console.log(`\n🗑️  Cleaning up root directory...`);
         rootFiles.forEach(item => {
           const itemPath = path.join(cwd, item);
