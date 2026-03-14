@@ -13,7 +13,8 @@ MemoryWell transforms any folder into a self-archiving workspace. Choose your pr
 - 🎯 4 flexible modes to match your workflow
 - 💾 Delta mode for space-efficient incremental backups
 - ⭐ Built-in favorites system (when using links)
-- 🖱️ Optional GUI with native dialogs
+- � Smart import with file-by-file comparison
+- 🔄 Time-based organization (last-week, last-month, last-year)
 - 🚀 One-command installation
 
 ---
@@ -197,39 +198,44 @@ your-project/
 
 ## 📚 Commands
 
-### 1. `mwinit [--gui] [--nolinks] [--hidden]`
+### 1. `mwinit [--nolinks] [--hidden]`
 
 Initialize a directory as a MemoryWell.
 
 **Options:**
-- `--gui`: Create clickable GUI applications
 - `--nolinks`: Archives only mode (no time-based organization)
 - `--hidden`: Hide structure in single folder
+- `--help`: Show help message
 
 **Examples:**
 ```bash
 mwinit                    # Mode 1: Full structure
 mwinit --nolinks          # Mode 2: Archives only
 mwinit --hidden           # Mode 4: Hidden structure
-mwinit --gui --hidden     # Mode 4 with GUI apps
 ```
 
 ---
 
-### 2. `mwpush [--usedelta] [--setfavorite] <description>`
+### 2. `mwpush [options] [description]`
 
 Archive all files from the root directory.
 
 **Options:**
 - `--usedelta`: Save only changed files (incremental backup)
 - `--setfavorite`: Mark as favorite (only in modes with links)
-- `<description>`: Optional description for the archive
+- `--gitignore [path]`: Use .gitignore to filter files (optional custom path)
+- `--atdate=YYYYMMDD`: Insert archive at specific date (IMAGE only)
+- `--keep`: Keep files at root (copy instead of move)
+- `--help`: Show help message
 
 **Examples:**
 ```bash
-mwpush "initial version"
-mwpush --usedelta "quick save"
-mwpush --setfavorite "milestone v1.0"
+mwpush "initial version"              # Full IMAGE archive
+mwpush --usedelta "quick save"        # Incremental DELTA
+mwpush --setfavorite "milestone v1.0" # Mark as favorite
+mwpush --gitignore "clean version"    # Filter with .gitignore
+mwpush --atdate=20260301 "old backup" # Insert at March 1st, 2026
+mwpush --keep "backup copy"           # Keep files at root (copy mode)
 ```
 
 **Archive naming:**
@@ -304,21 +310,23 @@ mwextract --dest=/tmp/restore 00-20260314-123456-IMAGE-first-version
 
 ---
 
-### 5. `mwimport <path> [--merge|--replace|--autopush] [--norecursive]`
+### 5. `mwimport <path> [options]`
 
-**NEW!** Import external directories into MemoryWell.
+**NEW!** Import external directories into MemoryWell with smart file-by-file merging.
 
 **Modes:**
-- `--merge`: Merge with existing files (default)
+- `--merge`: Merge with existing files, skip identical (default)
 - `--replace`: Delete existing files first
-- `--autopush`: Import and push automatically
+- `--autopush`: Push before import, import, then push again
 
 **Options:**
 - `--norecursive`: Copy only files, skip subdirectories
+- `--gitignore [path]`: Use .gitignore to filter files (optional custom path)
+- `--help`: Show help message
 
 **Examples:**
 ```bash
-# Import and merge
+# Import and merge (smart file comparison)
 mwimport /path/to/project
 
 # Import and replace
@@ -329,7 +337,16 @@ mwimport /path/to/project --autopush
 
 # Import only files (no subdirectories)
 mwimport /path/to/project --norecursive
+
+# Import with gitignore filtering
+mwimport /path/to/project --gitignore
 ```
+
+**Smart Merge:**
+- Compares files individually (size + modification time)
+- Copies new/different files even in existing directories
+- Skips identical files to save time
+- Shows live progress: `Copying.. Folder: coco - 1234 - file.js`
 
 **Note:** Imports the **CONTENT** of the directory, not the directory itself.
 
@@ -370,28 +387,43 @@ Enter a number to open that archive's folder in Finder/Explorer, or press Enter 
 
 ---
 
-## 🖥️ GUI Applications
+### 7. `mwremap`
 
-When initialized with `--gui`, MemoryWell creates clickable applications:
+Remap all symlinks in the MemoryWell structure.
 
-**macOS:**
-- 📦 `MemoryWell-Push.app`
-- 📤 `MemoryWell-Pop.app`
-- 📂 `MemoryWell-Extract.app`
-- 📥 `MemoryWell-Import.app`
-- 🔍 `MemoryWell-Find.app`
+**Usage:**
+```bash
+mwremap
+```
 
-**Linux:**
-- `memorywell-push.sh`
-- `memorywell-pop.sh`
-- `memorywell-extract.sh`
-- `memorywell-import.sh`
-- `memorywell-find.sh`
+**What it does:**
+- Removes all existing symlinks
+- Recreates favorite links (00-last + favorites)
+- Recreates time-based links (01-last-week, 02-last-month, 03-last-year)
+- Updates all references
 
-**Windows:**
-- Commands available via CLI: `mwpush`, `mwpop`, `mwextract`, `mwimport`, `mwfind`
+**When to use:**
+- After manually editing archives
+- After importing archives from another MemoryWell
+- To fix broken symlinks
 
-All GUI apps use native dialogs for user-friendly interaction
+---
+
+### 8. `mwsetfavorite <archive-name>`
+
+Mark an archive as favorite (only in modes with links).
+
+**Usage:**
+```bash
+mwsetfavorite 00-20260314-123456-IMAGE-milestone-v1.0
+```
+
+**What it does:**
+- Adds archive to 04-favorites/ folder
+- Creates symlink with archive name
+- Preserves all archive metadata
+
+**Note:** Only works in Mode 1 and Mode 4 (modes with symlinks).
 
 ---
 
@@ -412,6 +444,9 @@ mwpush --setfavorite "v1.0 release"
 mwpush "daily backup"
 mwpush --usedelta "quick save"
 
+# Use --keep to backup without clearing root
+mwpush --keep "safety backup"
+
 # Browse by time
 ls 01-last-week/     # Recent work
 ls 04-favorites/     # Important versions
@@ -425,6 +460,9 @@ mwpop
 
 # Extract without removing
 mwextract --mode=archive 00-20260314-100000-IMAGE-v1.0-release
+
+# Remap symlinks if needed
+mwremap
 ```
 
 ---
@@ -462,7 +500,7 @@ mwextract 00-20260314-120000-IMAGE-working-on-login
 ```bash
 # Initialize with hidden structure
 cd my-project
-mwinit --hidden --gui
+mwinit --hidden
 
 # Import and organize
 mwimport /path/to/legacy-code --replace
@@ -472,15 +510,16 @@ mwpush --setfavorite "migrated legacy code"
 mwpush --setfavorite "v1.0"
 mwpush --usedelta "quick fix"
 
+# Insert an old archive at specific date
+mwpush --atdate=20260101 "old backup from January"
+
 # Structure hidden in 00-memorywell/
 ls 00-memorywell/04-favorites/
 
-# Use GUI apps for easy access
-# Double-click MemoryWell-Find.app
-
-# Or use CLI
+# Use CLI commands
 mwfind --name "v1.0"
 mwextract 00-20260314-100000-IMAGE-v1.0
+mwsetfavorite 00-20260314-100000-IMAGE-v1.0
 ```
 
 ---

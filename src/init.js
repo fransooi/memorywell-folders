@@ -31,7 +31,6 @@ MemoryWell Init - Initialize a directory as a MemoryWell
 Usage: mwinit [options]
 
 Options:
-  --gui        Create clickable GUI applications
   --nolinks    Archives only mode (no time-based organization)
   --hidden     Hide structure in single folder
   --help       Show this help message
@@ -43,8 +42,7 @@ Modes:
   
 Examples:
   mwinit                    # Full visible structure
-  mwinit --gui              # Full structure + GUI apps
-  mwinit --hidden --gui     # Hidden structure + GUI apps
+  mwinit --hidden           # Hidden structure in 00-memorywell/
   mwinit --nolinks          # Ultra-simple archives only
 `);
   process.exit(0);
@@ -131,7 +129,6 @@ function initMemoryWell() {
     showHelp();
   }
   
-  const useGUI = args.includes('--gui');
   const noLinks = args.includes('--nolinks');
   const hidden = args.includes('--hidden');
   
@@ -178,21 +175,13 @@ function initMemoryWell() {
       console.log('\n✅ MemoryWell initialized successfully!');
     }
     
-    if (useGUI) {
-      console.log('\n📱 Creating GUI applications...');
-      const installDir = process.env.HOME ? path.join(process.env.HOME, '.memorywell') : null;
-      createGUIApps(cwd, installDir);
-      console.log('\n✨ GUI apps created! Double-click to use.');
-    }
-    
     console.log('\nYou can now use:');
     console.log('  - mwpush: Archive files from root');
     console.log('  - mwextract: Restore an archive to root');
     console.log('  - mwfind: Search through archives');
-    
-    if (useGUI) {
-      console.log('\nOr use the GUI apps in this folder!');
-    }
+    console.log('  - mwimport: Import external directories');
+    console.log('  - mwremap: Remap symlinks');
+    console.log('  - mwsetfavorite: Mark archives as favorites');
   } catch (error) {
     console.error('❌ Error initializing MemoryWell:', error.message);
     process.exit(1);
