@@ -4,29 +4,46 @@ const fs = require('fs');
 const path = require('path');
 
 function isMemoryWell(dir) {
-  // Check for --nolinks mode (structure inside 00-memorywell)
+  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+  
+  if (requiredDirs.every(d => fs.existsSync(path.join(dir, d)))) {
+    return true;
+  }
+  
+  if (fs.existsSync(path.join(dir, '00-memorywell-folders'))) {
+    return true;
+  }
+  
   if (fs.existsSync(path.join(dir, '00-memorywell'))) {
-    const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
     return requiredDirs.every(d => fs.existsSync(path.join(dir, '00-memorywell', d)));
   }
-  // Check for full mode (structure at root)
-  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
-  return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
+  
+  return false;
 }
 
-function getBaseDir(cwd) {
-  if (fs.existsSync(path.join(cwd, '00-memorywell'))) {
-    return path.join(cwd, '00-memorywell');
+function getBaseDir(dir) {
+  if (fs.existsSync(path.join(dir, '00-memorywell-folders'))) {
+    return dir;
   }
-  return cwd;
+  if (fs.existsSync(path.join(dir, '00-memorywell'))) {
+    return path.join(dir, '00-memorywell');
+  }
+  return dir;
 }
 
-function getArchivesDir(cwd) {
-  return path.join(getBaseDir(cwd), '05-folders');
+function getArchivesDir(dir) {
+  if (fs.existsSync(path.join(dir, '00-memorywell-folders'))) {
+    return path.join(dir, '00-memorywell-folders');
+  }
+  return path.join(getBaseDir(dir), '05-folders');
 }
 
-function getFavoritesDir(cwd) {
-  return path.join(getBaseDir(cwd), '04-favorites');
+function hasNoLinks(dir) {
+  return fs.existsSync(path.join(dir, '00-memorywell-folders'));
+}
+
+function getFavoritesDir(dir) {
+  return path.join(getBaseDir(dir), '04-favorites');
 }
 
 function listArchives(archivesDir) {
@@ -53,6 +70,11 @@ function setFavoriteArchive() {
   if (!isMemoryWell(cwd)) {
     console.log('❌ Not a MemoryWell directory. Run "init" first.');
     process.exit(1);
+  }
+  
+  if (hasNoLinks(cwd)) {
+    console.log('⚠️  Favorites are not available in --nolinks mode.');
+    process.exit(0);
   }
   
   const favoritesDir = getFavoritesDir(cwd);

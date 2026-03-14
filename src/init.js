@@ -5,14 +5,23 @@ const path = require('path');
 const os = require('os');
 
 function isMemoryWell(dir) {
-  // Check for --nolinks mode (structure inside 00-memorywell)
+  // Mode 1: --nolinks=false --hidden=false (structure at root)
+  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
+  if (requiredDirs.every(d => fs.existsSync(path.join(dir, d)))) {
+    return true;
+  }
+  
+  // Mode 2 & 3: --nolinks=true (00-memorywell-folders)
+  if (fs.existsSync(path.join(dir, '00-memorywell-folders'))) {
+    return true;
+  }
+  
+  // Mode 4: --hidden=true (00-memorywell with structure)
   if (fs.existsSync(path.join(dir, '00-memorywell'))) {
-    const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
     return requiredDirs.every(d => fs.existsSync(path.join(dir, '00-memorywell', d)));
   }
-  // Check for full mode (structure at root)
-  const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
-  return requiredDirs.every(d => fs.existsSync(path.join(dir, d)));
+  
+  return false;
 }
 
 function createGUIApps(cwd, installDir) {
@@ -89,6 +98,7 @@ function initMemoryWell() {
   const cwd = process.cwd();
   const args = process.argv.slice(2);
   const useGUI = args.includes('--gui');
+  const noLinks = args.includes('--nolinks');
   const hidden = args.includes('--hidden');
   
   if (isMemoryWell(cwd)) {
@@ -99,25 +109,38 @@ function initMemoryWell() {
   try {
     const dirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
     
-    if (hidden) {
-      // Hidden mode: structure inside 00-memorywell/
+    if (noLinks && hidden) {
+      // Mode 3: --nolinks=true --hidden=true
+      // Same as mode 2: just 00-memorywell-folders
+      const foldersDir = path.join(cwd, '00-memorywell-folders');
+      fs.mkdirSync(foldersDir, { recursive: true });
+      console.log('✓ Created 00-memorywell-folders/');
+      console.log('\n✅ MemoryWell initialized (no links + hidden mode)!');
+    } else if (noLinks) {
+      // Mode 2: --nolinks=true --hidden=false
+      // Just 00-memorywell-folders at root
+      const foldersDir = path.join(cwd, '00-memorywell-folders');
+      fs.mkdirSync(foldersDir, { recursive: true });
+      console.log('✓ Created 00-memorywell-folders/');
+      console.log('\n✅ MemoryWell initialized (no links mode)!');
+    } else if (hidden) {
+      // Mode 4: --nolinks=false --hidden=true
+      // Structure inside 00-memorywell/
       const baseDir = path.join(cwd, '00-memorywell');
-      
       dirs.forEach(dir => {
         const dirPath = path.join(baseDir, dir);
         fs.mkdirSync(dirPath, { recursive: true });
       });
-      
       console.log('✓ Created 00-memorywell/ (with internal structure)');
-      console.log('\n✅ MemoryWell initialized (hidden mode - single visible folder)!');
+      console.log('\n✅ MemoryWell initialized (hidden mode)!');
     } else {
-      // Full mode: structure at root
+      // Mode 1: --nolinks=false --hidden=false (default)
+      // Structure at root
       dirs.forEach(dir => {
         const dirPath = path.join(cwd, dir);
         fs.mkdirSync(dirPath, { recursive: true });
         console.log(`✓ Created ${dir}/`);
       });
-      
       console.log('\n✅ MemoryWell initialized successfully!');
     }
     

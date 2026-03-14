@@ -6,16 +6,15 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)]()
 
-MemoryWell transforms any folder into a self-archiving workspace with automatic time-based organization. Unlike complex backup systems, MemoryWell uses simple, visible folders you can browse directly in your file manager.
+MemoryWell transforms any folder into a self-archiving workspace. Choose your preferred mode: full structure with time-based links, hidden structure, or ultra-simple with just archives.
 
 **✨ What makes MemoryWell unique:**
 - 📁 Simple folders, no proprietary formats
-- ⏰ Automatic time-based organization (week/month/year)
+- 🎯 4 flexible modes to match your workflow
 - 💾 Delta mode for space-efficient incremental backups
-- ⭐ Built-in favorites system
+- ⭐ Built-in favorites system (when using links)
 - 🖱️ Optional GUI with native dialogs
 - 🚀 One-command installation
-- 🎯 Two modes: Full (visible structure) or Hidden (single folder)
 
 ---
 
@@ -23,9 +22,10 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 
 - [Quick Start](#quick-start)
 - [Installation](#installation)
-- [How It Works](#how-it-works)
+- [The 4 Modes](#the-4-modes)
 - [Usage](#usage)
 - [Examples](#examples)
+- [Delta Rules](#delta-rules)
 - [Future Versions](#future-versions)
 - [Author](#author)
 - [License](#license)
@@ -40,12 +40,12 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 # or
 .\install.ps1  # Windows
 
-# Initialize a folder (full mode with visible time-based folders)
+# Initialize (choose your mode)
 cd my-project
-mwinit
-
-# OR initialize in hidden mode (single visible folder)
-mwinit --hidden
+mwinit                    # Mode 1: Full structure (default)
+mwinit --nolinks          # Mode 2: Archives only
+mwinit --nolinks --hidden # Mode 3: Same as mode 2
+mwinit --hidden           # Mode 4: Hidden structure
 
 # Archive your work
 echo "Hello World" > file.txt
@@ -95,66 +95,95 @@ Same as macOS. The installer will:
 
 ---
 
-## 🎨 How It Works
+## 🎨 The 4 Modes
 
-MemoryWell offers two modes to suit different workflows:
+MemoryWell offers 4 modes using two independent flags: `--nolinks` and `--hidden`
 
-### Full Mode (Default)
+### Mode 1: Full Structure (Default)
+**Flags:** None  
+**Best for:** Projects where you want visible time-based organization
 
-Perfect for projects where you want visible time-based organization.
-
-**Structure created:**
 ```
 your-project/
 ├── 01-last-week/      # Symlinks to archives < 7 days old
 ├── 02-last-month/     # Symlinks to archives < 30 days old
 ├── 03-last-year/      # Symlinks to archives < 365 days old
 ├── 04-favorites/      # Your favorite archives + 00-last link
-└── 05-folders/        # ALL archives (actual files)
+├── 05-folders/        # ALL archives (actual files)
+└── ...user files
 ```
+
+**Initialize:** `mwinit`
 
 **Features:**
 - ✅ Visible time-based navigation
-- ✅ Favorites system
-- ✅ Automatic link management
+- ✅ Favorites system with symlinks
 - ✅ Easy browsing by date
+- ✅ 00-last link always points to latest
 
-**Initialize:**
-```bash
-mwinit
-```
+---
 
-### Hidden Mode (--hidden)
+### Mode 2: Archives Only
+**Flags:** `--nolinks`  
+**Best for:** Ultra-simple setup, just archives
 
-Perfect for development where you want minimal visual clutter. The structure is hidden inside a single folder.
-
-**Structure created:**
 ```
 your-project/
-└── 00-memorywell/
-    ├── 01-last-week/      # (hidden from root)
-    ├── 02-last-month/     # (hidden from root)
-    ├── 03-last-year/      # (hidden from root)
-    ├── 04-favorites/      # (hidden from root)
-    └── 05-folders/        # ALL archives (actual files)
+├── 00-memorywell-folders/  # Archives stored directly here
+│   ├── 00-20260314-120000-IMAGE-initial/
+│   ├── 01-20260314-130000-DELTA-update/
+│   └── 02-20260314-140000-IMAGE-final/
+└── ...user files
 ```
+
+**Initialize:** `mwinit --nolinks`
 
 **Features:**
-- ✅ Single visible directory
-- ✅ No visual clutter in IDE
-- ✅ Same internal structure
-- ✅ All features work identically
+- ✅ Single folder for all archives
+- ✅ No symlinks, no time-based organization
+- ✅ Minimal visual clutter
+- ❌ No favorites system
 
-**Initialize:**
-```bash
-mwinit --nolinks
+---
+
+### Mode 3: Archives Only + Hidden
+**Flags:** `--nolinks --hidden`  
+**Best for:** Same as Mode 2 (both flags result in same structure)
+
+```
+your-project/
+├── 00-memorywell-folders/  # Archives stored directly here
+└── ...user files
 ```
 
-**Why this design?**
-- Same code for both modes (simpler maintenance)
-- Favorites still work in simple mode
-- Time-based links exist but are hidden
-- Easy to switch between modes
+**Initialize:** `mwinit --nolinks --hidden`
+
+**Note:** This mode is identical to Mode 2. Both flags together create the same simple structure.
+
+---
+
+### Mode 4: Hidden Structure
+**Flags:** `--hidden`  
+**Best for:** Development with minimal IDE clutter but full features
+
+```
+your-project/
+├── 00-memorywell/
+│   ├── 01-last-week/      # Time-based links (hidden from root)
+│   ├── 02-last-month/
+│   ├── 03-last-year/
+│   ├── 04-favorites/      # Favorites + 00-last link
+│   └── 05-folders/        # ALL archives
+└── ...user files
+```
+
+**Initialize:** `mwinit --hidden`
+
+**Features:**
+- ✅ Single visible directory at root
+- ✅ Full structure inside (time-based + favorites)
+- ✅ All features work identically to Mode 1
+- ✅ Clean IDE workspace
 
 ---
 
@@ -162,21 +191,26 @@ mwinit --nolinks
 
 ### CLI Commands
 
-#### `mwinit [--gui] [--hidden]`
+#### `mwinit [--gui] [--nolinks] [--hidden]`
 
 Initialize a directory as a MemoryWell.
 
 **Options:**
 - `--gui`: Create clickable GUI applications
-- `--hidden`: Hidden mode (single visible folder)
+- `--nolinks`: Archives only mode (no time-based organization)
+- `--hidden`: Hide structure in single folder
 
 **Examples:**
 ```bash
-mwinit                    # Full mode
-mwinit --hidden           # Hidden mode
-mwinit --gui              # Full mode with GUI apps
-mwinit --gui --hidden     # Hidden mode with GUI apps
+mwinit                    # Mode 1: Full structure
+mwinit --nolinks          # Mode 2: Archives only
+mwinit --nolinks --hidden # Mode 3: Same as mode 2
+mwinit --hidden           # Mode 4: Hidden structure
+mwinit --gui              # Mode 1 with GUI apps
+mwinit --gui --hidden     # Mode 4 with GUI apps
 ```
+
+---
 
 #### `mwpush [--usedelta] [--setfavorite] <description>`
 
@@ -184,7 +218,7 @@ Archive all files from the root directory.
 
 **Options:**
 - `--usedelta`: Save only changed files (incremental backup)
-- `--setfavorite`: Mark as favorite
+- `--setfavorite`: Mark as favorite (only in modes with links)
 - `<description>`: Optional description for the archive
 
 **Delta Rules:**
@@ -196,12 +230,14 @@ Archive all files from the root directory.
 ```bash
 mwpush "initial version"
 mwpush --usedelta "quick save"
-mwpush --setfavorite "milestone v1.0"
+mwpush --setfavorite "milestone v1.0"  # Only works in modes 1 & 4
 ```
 
 **Archive naming:**
 - `00-YYYYMMDD-HHMMSS-IMAGE-description` (full archive)
 - `00-YYYYMMDD-HHMMSS-DELTA-description` (incremental)
+
+---
 
 #### `mwextract [--mode=delete|merge|archive] <archive-name>`
 
@@ -210,7 +246,7 @@ Extract an archive to the root directory.
 **Safety options** (if root has files):
 - `delete`: Remove current files (⚠️ destructive)
 - `merge`: Keep current files + restore archive
-- `archive`: Create backup first, then restore
+- `archive`: Create backup first, then restore (recommended)
 
 **Examples:**
 ```bash
@@ -218,8 +254,7 @@ mwextract 00-20260314-123456-IMAGE-first-version
 mwextract --mode=archive 00-20260314-123456-IMAGE-first-version
 ```
 
-**Interactive mode:**
-If files exist at root and no `--mode` is specified, you'll be prompted to choose.
+---
 
 #### `mwfind [options]`
 
@@ -241,14 +276,20 @@ mwfind --ext .js
 mwfind --contains "TODO"
 ```
 
+---
+
 #### `mwsetfavorite <archive-name>`
 
 Toggle favorite status of an archive.
+
+**Note:** Only available in modes 1 & 4 (modes with links)
 
 **Examples:**
 ```bash
 mwsetfavorite 00-20260314-123456-IMAGE-first-version
 ```
+
+---
 
 ### GUI Mode
 
@@ -269,68 +310,14 @@ When initialized with `--gui`, MemoryWell creates clickable applications:
 **Windows:**
 - Same as Linux (`.sh` files work with Git Bash)
 
-**Features:**
-- Native system dialogs (AppleScript, Zenity, PowerShell)
-- No terminal needed
-- Same functionality as CLI
-
-### Extract Safety Options
-
-When extracting an archive with `mwextract`, if files exist at root:
-
-**1. DELETE Mode**
-```
-⚠️  Removes all current files
-✅ Clean restore
-❌ Destructive
-```
-
-**2. MERGE Mode**
-```
-✅ Keeps current files
-✅ Adds archive files
-⚠️  Overwrites if same name
-```
-
-**3. ARCHIVE Mode** (Recommended)
-```
-✅ Creates backup first
-✅ Safe restore
-✅ No data loss
-```
-
-**CLI:**
-```bash
-mwextract --mode=archive 00-20260314-123456-IMAGE-version
-```
-
-**GUI:**
-Interactive dialogs guide you through the choice.
-
 ---
 
 ## 💡 Examples
 
-### Development Workflow (Hidden Mode)
+### Mode 1: Full Structure Workflow
 
 ```bash
-# Initialize hidden mode
-cd my-app
-mwinit --hidden
-
-# Quick saves during development
-mwpush "working on login"
-mwpush --usedelta "fixed bug"
-mwpush --usedelta "added tests"
-
-# Extract previous version
-mwextract 00-20260314-120000-IMAGE-working-on-login
-```
-
-### Project Workflow (Full Mode)
-
-```bash
-# Initialize with visible time-based organization
+# Initialize with full visible structure
 cd my-project
 mwinit
 
@@ -347,17 +334,45 @@ ls 04-favorites/     # Important versions
 mwextract --mode=archive 00-20260314-100000-IMAGE-v1.0-release
 ```
 
-### GUI Workflow
+---
+
+### Mode 2: Archives Only Workflow
 
 ```bash
-# Initialize with GUI
-cd my-project
-mwinit --gui
+# Initialize ultra-simple mode
+cd my-app
+mwinit --nolinks
 
-# Now just double-click:
-# - MemoryWell-Push.app to archive
-# - MemoryWell-Extract.app to restore
-# - MemoryWell-Find.app to search
+# Quick saves
+mwpush "working on login"
+mwpush --usedelta "fixed bug"
+mwpush --usedelta "added tests"
+
+# All archives in one place
+ls 00-memorywell-folders/
+
+# Extract previous version
+mwextract 00-20260314-120000-IMAGE-working-on-login
+```
+
+---
+
+### Mode 4: Hidden Structure Workflow
+
+```bash
+# Initialize with hidden structure
+cd my-project
+mwinit --hidden
+
+# Same features as Mode 1, cleaner root
+mwpush --setfavorite "v1.0"
+mwpush --usedelta "quick fix"
+
+# Structure hidden in 00-memorywell/
+ls 00-memorywell/04-favorites/
+
+# Extract
+mwextract 00-20260314-100000-IMAGE-v1.0
 ```
 
 ---
@@ -413,11 +428,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 🙏 Acknowledgments
 
-MemoryWell was created to solve the simple problem of "I want to save my work without complex tools." It's designed to be visible, simple, and reliable.
+MemoryWell was created to solve the simple problem of "I want to save my work without complex tools." It's designed to be flexible, simple, and reliable.
 
 **Philosophy:**
 - Simple > Complex
-- Visible > Hidden  
+- Flexible > Rigid
 - Folders > Databases
 - Your files, your control
 
