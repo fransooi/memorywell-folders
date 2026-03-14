@@ -328,7 +328,7 @@ function popMemoryWell() {
     return;
   }
   
-  // Mode 2: Pop specific archive
+  // Mode 2 & 3: Pop specific archive
   const archiveIndex = archives.indexOf(archiveName);
   
   if (archiveIndex === -1) {
@@ -336,6 +336,153 @@ function popMemoryWell() {
     process.exit(1);
   }
   
+  // Mode 3: --onedelta - consolidate multiple deltas into one
+  if (oneDelta) {
+    console.log(`\n🔄 Consolidating deltas starting from: ${archiveName}\n`);
+    
+    try {
+      const isDelta = isArchiveDelta(archiveName);
+      
+      if (!isDelta) {
+        console.log('❌ --onedelta can only be used with DELTA archives');
+        process.exit(1);
+      }
+      
+      // Find all consecutive deltas after this one
+      const deltasToMerge = [archiveName];
+      let nextIndex = archiveIndex + 1;
+      
+      while (nextIndex < archives.length && isArchiveDelta(archives[nextIndex])) {
+        deltasToMerge.push(archives[nextIndex]);
+        nextIndex++;
+      }
+      
+      console.log(`  ℹ️  Found ${deltasToMerge.length} consecutive DELTA(s) to consolidate`);
+      
+      // Get base image from first delta
+      const firstDeltaPath = path.join(archivesDir, archiveName);
+      const metaPath = path.join(firstDeltaPath, '.memorywell-meta.json');
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+      const baseImage = meta.baseImage;
+      const baseImagePath = path.join(archivesDir, baseImage);
+      
+      // Create consolidated delta in temp directory
+      const tempDir = path.join(archivesDir, '.temp-onedelta');
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(tempDir);
+      
+      // Start with base IMAGE
+      const baseItems = fs.readdirSync(baseImagePath);
+      baseItems.forEach(item => {
+        if (item.startsWith('.memorywell')) return;
+        const srcPath = path.join(baseImagePath, item);
+        const destPath = path.join(tempDir, item);
+        copyItem(srcPath, destPath);
+      });
+      
+      // Apply all deltas in sequence
+      deltasToMerge.forEach(deltaName => {
+        const deltaPath = path.join(archivesDir, deltaName);
+        const deltaItems = fs.readdirSync(deltaPath);
+        
+        deltaItems.forEach(item => {
+          if (item.startsWith('.memorywell')) return;
+          const srcPath = path.join(deltaPath, item);
+          const destPath = path.join(tempDir, item);
+          copyItem(srcPath, destPath);
+        });
+        
+        console.log(`  ✓ Applied: ${deltaName}`);
+      });
+      
+      // Now create a single delta with all changes
+      const consolidatedDelta = path.join(archivesDir, '.temp-consolidated');
+      if (fs.existsSync(consolidatedDelta)) {
+        fs.rmSync(consolidatedDelta, { recursive: true, force: true });
+      }
+      fs.mkdirSync(consolidatedDelta);
+      
+      // Compare temp (final state) with base image to get consolidated delta
+      const tempItems = fs.readdirSync(tempDir);
+      tempItems.forEach(item => {
+        const tempItemPath = path.join(tempDir, item);
+        const baseItemPath = path.join(baseImagePath, item);
+        
+        // If item doesn't exist in base or is different, include in delta
+        if (!fs.existsSync(baseItemPath)) {
+          const destPath = path.join(consolidatedDelta, item);
+          copyItem(tempItemPath, destPath);
+        } else {
+          // Check if different (simplified - just check if it's a file and sizes differ)
+          const tempStat = fs.statSync(tempItemPath);
+          const baseStat = fs.statSync(baseItemPath);
+          
+          if (tempStat.isFile() && baseStat.isFile()) {
+            if (tempStat.size !== baseStat.size || 
+                Math.abs(tempStat.mtime - baseStat.mtime) > 1000) {
+              const destPath = path.join(consolidatedDelta, item);
+              copyItem(tempItemPath, destPath);
+            }
+          } else if (tempStat.isDirectory()) {
+            // For directories, always include (simplified)
+            const destPath = path.join(consolidatedDelta, item);
+            copyItem(tempItemPath, destPath);
+          }
+        }
+      });
+      
+      // Create metadata for consolidated delta
+      const consolidatedMeta = {
+        type: 'DELTA',
+        baseImage: baseImage,
+        created: new Date().toISOString(),
+        consolidated: true,
+        originalDeltas: deltasToMerge.length
+      };
+      
+      fs.writeFileSync(
+        path.join(consolidatedDelta, '.memorywell-meta.json'),
+        JSON.stringify(consolidatedMeta, null, 2)
+      );
+      
+      // Delete all original deltas
+      deltasToMerge.forEach(deltaName => {
+        deleteArchive(archivesDir, deltaName);
+      });
+      
+      // Rename consolidated delta to use first delta's name
+      const finalDeltaPath = path.join(archivesDir, archiveName);
+      fs.renameSync(consolidatedDelta, finalDeltaPath);
+      
+      // Cleanup temp
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      
+      // Extract consolidated delta to root
+      const rootFiles = getRootFiles(cwd);
+      if (rootFiles.length > 0) {
+        deleteRootFiles(cwd, rootFiles);
+      }
+      extractArchiveToRoot(cwd, archivesDir, archiveName);
+      
+      // Remap symlinks
+      remapMemoryWell(cwd, { silent: true });
+      
+      console.log('\n✅ Delta consolidation completed!');
+      console.log(`   Merged ${deltasToMerge.length} deltas into 1`);
+      console.log(`   New consolidated delta: ${archiveName}`);
+      console.log(`   Archives remaining: ${archives.length - deltasToMerge.length + 1}`);
+      
+    } catch (error) {
+      console.error('❌ Error during consolidation:', error.message);
+      process.exit(1);
+    }
+    
+    return;
+  }
+  
+  // Mode 2: Pop specific archive (without --onedelta)
   console.log(`\n📦 Popping archive: ${archiveName}\n`);
   
   try {
