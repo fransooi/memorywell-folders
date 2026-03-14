@@ -46,14 +46,16 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 mkdir -p "$INSTALL_DIR/gui"
 
-cp "$SCRIPT_DIR/src/init.js" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/src/push.js" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/src/pop.js" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/src/extract.js" "$INSTALL_DIR/extract.js"
-cp "$SCRIPT_DIR/src/import.js" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/src/find.js" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/src/setfavorite.js" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/src/remap.js" "$INSTALL_DIR/"
+mkdir -p "$INSTALL_DIR/src"
+
+cp "$SCRIPT_DIR/src/init.js" "$INSTALL_DIR/src/"
+cp "$SCRIPT_DIR/src/push.js" "$INSTALL_DIR/src/"
+cp "$SCRIPT_DIR/src/pop.js" "$INSTALL_DIR/src/"
+cp "$SCRIPT_DIR/src/extract.js" "$INSTALL_DIR/src/"
+cp "$SCRIPT_DIR/src/import.js" "$INSTALL_DIR/src/"
+cp "$SCRIPT_DIR/src/find.js" "$INSTALL_DIR/src/"
+cp "$SCRIPT_DIR/src/setfavorite.js" "$INSTALL_DIR/src/"
+cp "$SCRIPT_DIR/src/remap.js" "$INSTALL_DIR/src/"
 cp "$SCRIPT_DIR/src/gui/gui-helpers.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-push.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-pop.js" "$INSTALL_DIR/gui/"
@@ -63,49 +65,49 @@ cp "$SCRIPT_DIR/src/gui/gui-find.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-setfavorite.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-remap.js" "$INSTALL_DIR/gui/"
 
-chmod +x "$INSTALL_DIR"/*.js
+chmod +x "$INSTALL_DIR/src"/*.js
 chmod +x "$INSTALL_DIR/gui"/*.js
 
 echo "Creating command wrappers..."
 
 cat > "$BIN_DIR/mwinit" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/init.js" "$@"
+node "$HOME/.memorywell/src/init.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwpush" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/push.js" "$@"
+node "$HOME/.memorywell/src/push.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwpop" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/pop.js" "$@"
+node "$HOME/.memorywell/src/pop.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwextract" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/extract.js" "$@"
+node "$HOME/.memorywell/src/extract.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwimport" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/import.js" "$@"
+node "$HOME/.memorywell/src/import.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwfind" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/find.js" "$@"
+node "$HOME/.memorywell/src/find.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwsetfavorite" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/setfavorite.js" "$@"
+node "$HOME/.memorywell/src/setfavorite.js" "$@"
 EOF
 
 cat > "$BIN_DIR/mwremap" << 'EOF'
 #!/bin/bash
-node "$HOME/.memorywell/remap.js" "$@"
+node "$HOME/.memorywell/src/remap.js" "$@"
 EOF
 
 chmod +x "$BIN_DIR"/mw*
@@ -116,9 +118,12 @@ echo ""
 echo "Available commands:"
 echo "  mwinit         - Initialize a MemoryWell folder"
 echo "  mwpush         - Archive files to MemoryWell"
-echo "  mwpop          - Restore files from archive"
+echo "  mwpop          - Restore and remove from stack"
+echo "  mwextract      - Extract without removing"
+echo "  mwimport       - Import external directories"
 echo "  mwfind         - Search through archives"
 echo "  mwsetfavorite  - Mark/unmark archives as favorite"
+echo "  mwremap        - Remap symlinks"
 echo ""
 echo "Quick start:"
 echo "  cd your-folder"
