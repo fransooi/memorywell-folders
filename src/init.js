@@ -76,7 +76,8 @@ node "${scriptPath}"`;
       { name: 'push', script: 'gui/gui-push.js', icon: '📦' },
       { name: 'extract', script: 'gui/gui-extract.js', icon: '📂' },
       { name: 'find', script: 'gui/gui-find.js', icon: '🔍' },
-      { name: 'setfavorite', script: 'gui/gui-setfavorite.js', icon: '⭐' }
+      { name: 'setfavorite', script: 'gui/gui-setfavorite.js', icon: '⭐' },
+      { name: 'remap', script: 'gui/gui-remap.js', icon: '🔄' }
     ];
     
     apps.forEach(app => {

@@ -302,6 +302,32 @@ mwsetfavorite 00-20260314-123456-IMAGE-first-version
 
 ---
 
+#### `mwremap`
+
+Remap all symlinks after moving a MemoryWell directory.
+
+**When to use:**
+- After moving/renaming your MemoryWell directory
+- If symlinks appear broken
+- To regenerate the `00-last` link in favorites
+
+**What it does:**
+- Removes all existing symlinks
+- Recreates favorite links (including `00-last`)
+- Time-based links will be recreated on next push
+
+**Note:** Only works in modes 1 & 4 (modes with links). Not needed in `--nolinks` mode.
+
+**Examples:**
+```bash
+# After moving your project
+mv /old/path/my-project /new/path/my-project
+cd /new/path/my-project
+mwremap
+```
+
+---
+
 ### GUI Mode
 
 When initialized with `--gui`, MemoryWell creates clickable applications:

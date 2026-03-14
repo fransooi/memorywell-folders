@@ -51,11 +51,13 @@ cp "$SCRIPT_DIR/src/push.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/extract.js" "$INSTALL_DIR/extract.js"
 cp "$SCRIPT_DIR/src/find.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/setfavorite.js" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/src/remap.js" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/src/gui/gui-helpers.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-push.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-extract.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-find.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-setfavorite.js" "$INSTALL_DIR/gui/"
+cp "$SCRIPT_DIR/src/gui/gui-remap.js" "$INSTALL_DIR/gui/"
 
 chmod +x "$INSTALL_DIR"/*.js
 chmod +x "$INSTALL_DIR/gui"/*.js
@@ -85,6 +87,11 @@ EOF
 cat > "$BIN_DIR/mwsetfavorite" << 'EOF'
 #!/bin/bash
 node "$HOME/.memorywell/setfavorite.js" "$@"
+EOF
+
+cat > "$BIN_DIR/mwremap" << 'EOF'
+#!/bin/bash
+node "$HOME/.memorywell/remap.js" "$@"
 EOF
 
 chmod +x "$BIN_DIR"/mw*

@@ -22,6 +22,7 @@ rm -f "$BIN_DIR/mwpush"
 rm -f "$BIN_DIR/mwextract"
 rm -f "$BIN_DIR/mwfind"
 rm -f "$BIN_DIR/mwsetfavorite"
+rm -f "$BIN_DIR/mwremap"
 
 echo ""
 echo "✅ MemoryWell has been uninstalled"

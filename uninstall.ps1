@@ -22,6 +22,7 @@ Remove-Item -Path "$BIN_DIR\mwpush.bat" -ErrorAction SilentlyContinue
 Remove-Item "$BIN_DIR\mwextract.cmd" -ErrorAction SilentlyContinue
 Remove-Item -Path "$BIN_DIR\mwfind.bat" -ErrorAction SilentlyContinue
 Remove-Item -Path "$BIN_DIR\mwsetfavorite.bat" -ErrorAction SilentlyContinue
+Remove-Item -Path "$BIN_DIR\mwremap.bat" -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "✅ MemoryWell has been uninstalled" -ForegroundColor Green

@@ -50,11 +50,13 @@ Copy-Item "$SCRIPT_DIR\src\push.js" "$INSTALL_DIR\"
 Copy-Item "$ScriptDir\src\extract.js" "$InstallDir\extract.js"
 Copy-Item "$SCRIPT_DIR\src\find.js" "$INSTALL_DIR\"
 Copy-Item "$SCRIPT_DIR\src\setfavorite.js" "$INSTALL_DIR\"
+Copy-Item "$SCRIPT_DIR\src\remap.js" "$INSTALL_DIR\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-helpers.js" "$INSTALL_DIR\gui\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-push.js" "$INSTALL_DIR\gui\"
 Copy-Item "$ScriptDir\src\gui\gui-extract.js" "$InstallDir\gui-extract.js"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-find.js" "$INSTALL_DIR\gui\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-setfavorite.js" "$INSTALL_DIR\gui\"
+Copy-Item "$SCRIPT_DIR\src\gui\gui-remap.js" "$INSTALL_DIR\gui\"
 
 Write-Host "Creating command wrappers..."
 
@@ -83,6 +85,11 @@ node "%USERPROFILE%\.memorywell\find.js" %*
 @echo off
 node "%USERPROFILE%\.memorywell\setfavorite.js" %*
 "@ | Out-File -FilePath "$BIN_DIR\mwsetfavorite.bat" -Encoding ASCII
+
+@"
+@echo off
+node "%USERPROFILE%\.memorywell\remap.js" %*
+"@ | Out-File -FilePath "$BIN_DIR\mwremap.bat" -Encoding ASCII
 
 Write-Host ""
 Write-Host "✅ Installation complete!" -ForegroundColor Green
