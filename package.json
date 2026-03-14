@@ -7,6 +7,7 @@
     "mw-push": "src/push.js",
     "mw-pop": "src/pop.js",
     "mw-extract": "src/extract.js",
+    "mw-import": "src/import.js",
     "mw-find": "src/find.js",
     "mw-setfavorite": "src/setfavorite.js",
     "mw-remap": "src/remap.js"

@@ -76,6 +76,7 @@ node "${scriptPath}"`;
       { name: 'Push', script: 'gui/gui-push.js', icon: '📦' },
       { name: 'Pop', script: 'gui/gui-pop.js', icon: '📤' },
       { name: 'Extract', script: 'gui/gui-extract.js', icon: '📂' },
+      { name: 'Import', script: 'gui/gui-import.js', icon: '📥' },
       { name: 'Find', script: 'gui/gui-find.js', icon: '🔍' },
       { name: 'SetFavorite', script: 'gui/gui-setfavorite.js', icon: '⭐' },
       { name: 'Remap', script: 'gui/gui-remap.js', icon: '🔄' }

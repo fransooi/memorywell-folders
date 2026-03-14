@@ -21,6 +21,7 @@ Remove-Item -Path "$BIN_DIR\mwinit.bat" -ErrorAction SilentlyContinue
 Remove-Item -Path "$BIN_DIR\mwpush.bat" -ErrorAction SilentlyContinue
 Remove-Item -Path "$BIN_DIR\mwpop.bat" -ErrorAction SilentlyContinue
 Remove-Item "$BIN_DIR\mwextract.cmd" -ErrorAction SilentlyContinue
+Remove-Item -Path "$BIN_DIR\mwimport.bat" -ErrorAction SilentlyContinue
 Remove-Item -Path "$BIN_DIR\mwfind.bat" -ErrorAction SilentlyContinue
 Remove-Item -Path "$BIN_DIR\mwsetfavorite.bat" -ErrorAction SilentlyContinue
 Remove-Item -Path "$BIN_DIR\mwremap.bat" -ErrorAction SilentlyContinue
