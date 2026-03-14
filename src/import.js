@@ -153,8 +153,8 @@ function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, source
     
     // Show progress animation
     fileCounter.count++;
-    const relativePath = path.relative(sourceRoot || path.dirname(srcPath), srcPath);
-    process.stdout.write(`\r  📋 Copying.. ${fileCounter.count} - ${relativePath}`);
+    const fileName = path.basename(srcPath);
+    process.stdout.write(`\r  📋 Copying.. ${fileCounter.count} - ${fileName}`);
   }
 }
 
