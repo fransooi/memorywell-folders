@@ -118,7 +118,7 @@ function getRootFiles(cwd) {
   });
 }
 
-function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, sourceRoot = null, mergeMode = false, fileCounter = { count: 0 }, rootFolderName = '') {
+function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, sourceRoot = null, mergeMode = false, fileCounter = { copied: 0, skipped: 0 }, rootFolderName = '') {
   const stat = fs.lstatSync(srcPath);
   
   // Check gitignore filtering
@@ -139,10 +139,15 @@ function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, source
       copyItem(path.join(srcPath, item), path.join(destPath, item), recursive, gitignorePatterns, sourceRoot, mergeMode, fileCounter, rootFolderName);
     });
   } else if (stat.isFile()) {
+    const fileName = path.basename(srcPath);
+    const displayName = fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName.padEnd(40, ' ');
+    
     // In merge mode, skip if file exists and is identical
     if (mergeMode && fs.existsSync(destPath)) {
       const destStat = fs.statSync(destPath);
       if (stat.size === destStat.size && Math.abs(stat.mtimeMs - destStat.mtimeMs) < 1000) {
+        fileCounter.skipped++;
+        process.stdout.write(`\r  ⊘ Skipping.. Folder: ${rootFolderName} - ${fileCounter.skipped} - ${displayName}`);
         return; // Skip identical file
       }
     }
@@ -152,10 +157,8 @@ function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, source
     fs.utimesSync(destPath, stat.atime, stat.mtime);
     
     // Show progress animation
-    fileCounter.count++;
-    const fileName = path.basename(srcPath);
-    const displayName = fileName.length > 50 ? fileName.substring(0, 47) + '...' : fileName.padEnd(50, ' ');
-    process.stdout.write(`\r  📋 Copying... ${rootFolderName} - ${fileCounter.count} - ${displayName}`);
+    fileCounter.copied++;
+    process.stdout.write(`\r  📋 Copying.. Folder: ${rootFolderName} - ${fileCounter.copied} - ${displayName}`);
   }
 }
 
@@ -372,7 +375,7 @@ function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitigno
     
     // Copy contents of source directory to root
     const sourceItems = fs.readdirSync(resolvedSource);
-    const fileCounter = { count: 0 };
+    const fileCounter = { copied: 0, skipped: 0 };
     const isMergeMode = (mode === '--merge' || !mode);
     
     sourceItems.forEach(item => {
@@ -385,11 +388,14 @@ function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, gitigno
     });
     
     // Clear progress line and show completion
-    if (fileCounter.count > 0) {
-      process.stdout.write('\r' + ' '.repeat(100) + '\r'); // Clear line
+    if (fileCounter.copied > 0 || fileCounter.skipped > 0) {
+      process.stdout.write('\r' + ' '.repeat(120) + '\r'); // Clear line
     }
     console.log(`\n✅ Import completed!`);
-    console.log(`   Files copied: ${fileCounter.count}`);
+    console.log(`   Files copied: ${fileCounter.copied}`);
+    if (fileCounter.skipped > 0) {
+      console.log(`   Files skipped: ${fileCounter.skipped}`);
+    }
     
     // Auto-push AFTER import if requested
     if (mode === '--autopush') {
