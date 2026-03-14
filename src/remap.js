@@ -118,6 +118,64 @@ function createFavoriteLinks(baseDir, archivesDir) {
   return createdCount;
 }
 
+function createTimeBasedLinks(baseDir, archivesDir) {
+  const timeDirs = [
+    { path: path.join(baseDir, '01-last-week'), days: 7 },
+    { path: path.join(baseDir, '02-last-month'), days: 30 },
+    { path: path.join(baseDir, '03-last-year'), days: 365 }
+  ];
+  
+  let createdCount = 0;
+  const now = Date.now();
+  
+  // Get all archives
+  const archives = fs.readdirSync(archivesDir)
+    .filter(name => /^\d{2}-\d{8}-\d{6}/.test(name))
+    .sort();
+  
+  if (archives.length === 0) return 0;
+  
+  timeDirs.forEach(timeDir => {
+    if (!fs.existsSync(timeDir.path)) return;
+    
+    const cutoffTime = now - (timeDir.days * 24 * 60 * 60 * 1000);
+    
+    archives.forEach(archive => {
+      // Parse archive date: NN-YYYYMMDD-HHMMSS-...
+      const parts = archive.split('-');
+      const dateStr = parts[1]; // YYYYMMDD
+      const timeStr = parts[2]; // HHMMSS
+      
+      const year = parseInt(dateStr.substring(0, 4));
+      const month = parseInt(dateStr.substring(4, 6)) - 1;
+      const day = parseInt(dateStr.substring(6, 8));
+      const hours = parseInt(timeStr.substring(0, 2));
+      const minutes = parseInt(timeStr.substring(2, 4));
+      const seconds = parseInt(timeStr.substring(4, 6));
+      
+      const archiveDate = new Date(year, month, day, hours, minutes, seconds);
+      const archiveTime = archiveDate.getTime();
+      
+      if (archiveTime >= cutoffTime) {
+        const archivePath = path.join(archivesDir, archive);
+        const linkPath = path.join(timeDir.path, archive);
+        
+        try {
+          if (fs.existsSync(linkPath)) {
+            fs.unlinkSync(linkPath);
+          }
+          fs.symlinkSync(path.relative(timeDir.path, archivePath), linkPath);
+          createdCount++;
+        } catch (err) {
+          // Ignore errors
+        }
+      }
+    });
+  });
+  
+  return createdCount;
+}
+
 function remapMemoryWell(cwd, options = {}) {
   const silent = options.silent || false;
   
@@ -146,10 +204,13 @@ function remapMemoryWell(cwd, options = {}) {
   const favCreatedCount = createFavoriteLinks(baseDir, archivesDir);
   if (!silent) console.log(`   ✓ Created ${favCreatedCount} favorite links\n`);
   
+  // Step 3: Recreate time-based links
+  if (!silent) console.log('3️⃣  Recreating time-based links...');
+  const timeCreatedCount = createTimeBasedLinks(baseDir, archivesDir);
+  if (!silent) console.log(`   ✓ Created ${timeCreatedCount} time-based links\n`);
+  
   if (!silent) {
     console.log('✅ Remap completed successfully!');
-    console.log('\n💡 Note: Time-based links (01-last-week, etc.) are not recreated.');
-    console.log('   They will be updated automatically on the next push.');
   }
   
   return true;
@@ -163,6 +224,7 @@ module.exports = {
   hasNoLinks,
   removeAllSymlinks,
   createFavoriteLinks,
+  createTimeBasedLinks,
   remapMemoryWell
 };
 
