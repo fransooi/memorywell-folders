@@ -239,20 +239,31 @@ mwpush --setfavorite "milestone v1.0"  # Only works in modes 1 & 4
 
 ---
 
-#### `mwextract [--mode=delete|merge|archive] <archive-name>`
+#### `mwextract [--mode=delete|merge|archive] [--dest=path] <archive-name>`
 
-Extract an archive to the root directory.
+Extract an archive to the root directory or to a custom destination.
 
-**Safety options** (if root has files):
+**Options:**
+- `--mode=delete|merge|archive`: Safety mode when target has files
+- `--dest=/path/to/directory`: Extract to a different location (not a MemoryWell)
+
+**Safety modes** (if target has files):
 - `delete`: Remove current files (⚠️ destructive)
 - `merge`: Keep current files + restore archive
-- `archive`: Create backup first, then restore (recommended)
+- `archive`: Create backup first, then restore (only works in MemoryWell directory)
 
 **Examples:**
 ```bash
+# Extract to current directory (MemoryWell root)
 mwextract 00-20260314-123456-IMAGE-first-version
 mwextract --mode=archive 00-20260314-123456-IMAGE-first-version
+
+# Extract to a different location
+mwextract --dest=/tmp/restore 00-20260314-123456-IMAGE-first-version
+mwextract --dest=/home/user/backup --mode=merge 00-20260314-123456-IMAGE-first-version
 ```
+
+**Note:** When using `--dest`, the target directory doesn't need to be a MemoryWell. The `archive` mode is not available with `--dest` (use `delete` or `merge` instead).
 
 ---
 

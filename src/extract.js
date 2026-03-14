@@ -49,17 +49,25 @@ function listArchives(archivesDir) {
     .reverse();
 }
 
-function getRootFiles(cwd) {
+function getRootFiles(cwd, targetDir) {
   const protectedDirs = ['00-memorywell', '01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
-  return fs.readdirSync(cwd).filter(item => {
-    if (protectedDirs.includes(item)) return false;
-    if (item.startsWith('.')) return false;
-    
-    const itemPath = path.join(cwd, item);
-    const stat = fs.statSync(itemPath);
-    return stat.isFile() || stat.isDirectory();
-  });
+  let rootFiles = [];
+  if (fs.existsSync(targetDir)) {
+    rootFiles = fs.readdirSync(targetDir).filter(item => {
+      if (item.startsWith('.')) return false;
+      // Only skip MemoryWell dirs if extracting to cwd (not to external dest)
+      if (!targetDir || targetDir === cwd) {
+        if (protectedDirs.includes(item)) return false;
+      }
+      return true;
+    });
+  } else if (targetDir) {
+    // Create destination directory if it doesn't exist
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+  
+  return rootFiles;
 }
 
 function isArchiveImage(archiveName) {
@@ -113,7 +121,7 @@ function getArchiveChain(archivesDir, targetArchive) {
   return chain;
 }
 
-function reconstructFromDelta(cwd, archivesDir, archiveName) {
+function reconstructFromDelta(cwd, archivesDir, archiveName, targetDir) {
   const chain = getArchiveChain(archivesDir, archiveName);
   
   if (chain.length === 0) {
@@ -140,7 +148,7 @@ function reconstructFromDelta(cwd, archivesDir, archiveName) {
     if (item.startsWith('.memorywell')) return;
     
     const srcPath = path.join(baseImagePath, item);
-    const destPath = path.join(cwd, item);
+    const destPath = path.join(targetDir, item);
     
     copyItem(srcPath, destPath);
   });
@@ -156,7 +164,7 @@ function reconstructFromDelta(cwd, archivesDir, archiveName) {
       if (item.startsWith('.memorywell')) return;
       
       const srcPath = path.join(deltaPath, item);
-      const destPath = path.join(cwd, item);
+      const destPath = path.join(targetDir, item);
       
       copyItem(srcPath, destPath);
     });
@@ -230,7 +238,13 @@ async function extractMemoryWell() {
   
   const args = process.argv.slice(2);
   const archiveName = args.find(arg => !arg.startsWith('--'));
-  const mode = args.find(arg => arg.startsWith('--mode='))?.split('=')[1];
+  const modeArg = args.find(arg => arg.startsWith('--mode='));
+  const destArg = args.find(arg => arg.startsWith('--dest='));
+  const mode = modeArg ? modeArg.split('=')[1] : null;
+  const destPath = destArg ? destArg.split('=')[1] : null;
+  
+  // If --dest is specified, extract to that directory instead of cwd
+  const targetDir = destPath ? path.resolve(destPath) : cwd;
   
   if (!archiveName) {
     const archivesDir = getArchivesDir(cwd);
@@ -258,7 +272,7 @@ async function extractMemoryWell() {
     process.exit(1);
   }
   
-  const rootFiles = getRootFiles(cwd);
+  const rootFiles = getRootFiles(cwd, targetDir);
   
   if (rootFiles.length > 0) {
     let chosenMode = mode;
@@ -298,29 +312,28 @@ async function extractMemoryWell() {
   }
   
   try {
-    const archivesDir = getArchivesDir(cwd);
-    
     if (isArchiveDelta(archiveName)) {
-      reconstructFromDelta(cwd, archivesDir, archiveName);
+      reconstructFromDelta(cwd, archivesDir, archiveName, targetDir);
       
       console.log(`\n📂 Restored DELTA archive: ${archiveName}`);
+      console.log(`   Destination: ${targetDir}`);
       console.log('\n✅ Extract completed successfully!');
     } else {
       const archiveItems = fs.readdirSync(archivePath);
-      let restoredCount = 0;
+      let fileCount = 0;
       
       archiveItems.forEach(item => {
         if (item.startsWith('.memorywell')) return;
         
         const srcPath = path.join(archivePath, item);
-        const destPath = path.join(cwd, item);
+        const destPath = path.join(targetDir, item);
         
         if (mode === 'merge' && fs.existsSync(destPath)) {
           console.log(`  ⊕ Skipped (exists): ${item}`);
         } else {
           fs.renameSync(srcPath, destPath);
           console.log(`  ✓ Restored: ${item}`);
-          restoredCount++;
+          fileCount++;
         }
       });
       
@@ -329,7 +342,8 @@ async function extractMemoryWell() {
       }
       
       console.log(`\n📂 Restored IMAGE archive: ${archiveName}`);
-      console.log(`   Files restored: ${restoredCount}`);
+      console.log(`   Destination: ${targetDir}`);
+      console.log(`   Files restored: ${fileCount}`);
       console.log('\n✅ Extract completed successfully!');
     }
     

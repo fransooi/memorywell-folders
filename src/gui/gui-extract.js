@@ -70,17 +70,41 @@ try {
     process.exit(0);
   }
   
+  const archivesWithDates = archives.map(archive => {
+    const date = archive.split('-')[1];
+    return `${archive} - ${date}`;
+  });
+  
   const selected = showListDialog(
     'MemoryWell Extract',
     'Select an archive to restore:',
-    archives
+    archivesWithDates
   );
   
   if (!selected) {
     process.exit(0);
   }
   
-  // Check if root has files
+  const archiveName = selected.split(' - ')[0];
+  
+  // Ask if user wants to extract to a different location
+  const useCustomDest = showYesNoDialog(
+    'MemoryWell Extract',
+    'Extract to a different location?'
+  );
+  
+  let destPath = null;
+  if (useCustomDest) {
+    destPath = getTextInput(
+      'MemoryWell Extract',
+      'Enter destination path:',
+      ''
+    );
+    if (!destPath) {
+      process.exit(0);
+    }
+  }
+  
   const rootFiles = getRootFiles(cwd);
   let mode = '';
   
@@ -95,7 +119,15 @@ try {
     mode = ` --mode=${chosenMode}`;
   }
   
-  const cmd = `node "${path.join(__dirname, '..', 'extract.js')}" "${selected}"${mode}`;
+  let cmd = `node "${path.join(__dirname, '..', 'extract.js')}" "${archiveName}"`;
+  
+  if (destPath) {
+    cmd += ` --dest="${destPath}"`;
+  }
+  if (mode) {
+    cmd += mode;
+  }
+  
   const output = execSync(cmd, { cwd, encoding: 'utf8' });
   
   showDialog('MemoryWell Extract', 'Archive restored successfully!\n\n' + output, 'info');
