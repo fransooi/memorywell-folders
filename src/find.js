@@ -108,8 +108,43 @@ function searchInArchive(archivePath, searchText) {
   return results;
 }
 
+function showHelp() {
+  console.log(`
+MemoryWell Find - Search through archives with interactive opening
+
+Usage: mwfind [options]
+
+Options:
+  --name <pattern>         Search by archive name
+  --date <YYYYMMDD>        Search by exact date
+  --from <YYYYMMDD>        Archives from date onwards
+  --to <YYYYMMDD>          Archives up to date
+  --ext <extension>        Search by file extension
+  --contains <text>        Search file contents
+  --help                   Show this help message
+
+Examples:
+  mwfind --name "milestone"        # Find archives with "milestone" in name
+  mwfind --date 20260314           # Find archives from specific date
+  mwfind --from 20260301 --to 20260315  # Date range
+  mwfind --ext .js                 # Find archives containing .js files
+  mwfind --contains "TODO"         # Search file contents
+
+Interactive mode:
+  After results are displayed, enter a number to open that archive's
+  folder in Finder/Explorer, or press Enter to quit.
+`);
+  process.exit(0);
+}
+
 function findInMemoryWell() {
   const cwd = process.cwd();
+  
+  const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
   
   if (!isMemoryWell(cwd)) {
     console.log('❌ Not a MemoryWell directory. Run "init" first.');

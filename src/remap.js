@@ -167,7 +167,42 @@ module.exports = {
 };
 
 // CLI execution
+function showHelp() {
+  console.log(`
+MemoryWell Remap - Regenerate all symlinks
+
+Usage: mwremap
+
+Options:
+  --help                  Show this help message
+
+When to use:
+  - After moving/renaming your MemoryWell directory
+  - If symlinks appear broken
+  - To regenerate the 00-last link in favorites
+
+What it does:
+  - Removes all existing symlinks
+  - Recreates favorite links (including 00-last)
+  - Recreates time-based links (last-week, last-month, last-year)
+
+Note: Only works in modes 1 & 4 (modes with links).
+      Not needed in --nolinks mode.
+
+Example:
+  cd /new/path/my-project
+  mwremap
+`);
+  process.exit(0);
+}
+
 if (require.main === module) {
+  const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
+  
   const cwd = process.cwd();
   const success = remapMemoryWell(cwd);
   if (!success) process.exit(1);

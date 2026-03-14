@@ -304,6 +304,36 @@ function copyItem(srcPath, destPath) {
 
 // Symlinks management removed - no longer needed with new structure
 
+function showHelp() {
+  console.log(`
+MemoryWell Push - Archive files from root directory
+
+Usage: mwpush [options] [description]
+
+Options:
+  --usedelta      Save only changed files (incremental backup)
+  --setfavorite   Mark as favorite (only in modes with links)
+  --gitignore [path]  Use .gitignore to filter files (optional custom path)
+  --help          Show this help message
+
+Arguments:
+  description     Optional description for the archive
+
+Examples:
+  mwpush "initial version"              # Full IMAGE archive
+  mwpush --usedelta "quick save"        # Incremental DELTA
+  mwpush --setfavorite "milestone v1.0" # Mark as favorite
+  mwpush --gitignore "clean version"    # Filter with .gitignore
+  mwpush --gitignore /path/.gitignore   # Custom .gitignore
+
+Gitignore cascade:
+  1. Custom path (if specified)
+  2. .gitignore at project root
+  3. .gitignore in installation directory
+`);
+  process.exit(0);
+}
+
 function pushMemoryWell() {
   const cwd = process.cwd();
   
@@ -313,6 +343,11 @@ function pushMemoryWell() {
   }
   
   const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
+  
   const setFavorite = args.includes('--setfavorite');
   const useDelta = args.includes('--usedelta');
   const useGitignore = args.includes('--gitignore');

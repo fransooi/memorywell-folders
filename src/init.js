@@ -24,6 +24,32 @@ function isMemoryWell(dir) {
   return false;
 }
 
+function showHelp() {
+  console.log(`
+MemoryWell Init - Initialize a directory as a MemoryWell
+
+Usage: mwinit [options]
+
+Options:
+  --gui        Create clickable GUI applications
+  --nolinks    Archives only mode (no time-based organization)
+  --hidden     Hide structure in single folder
+  --help       Show this help message
+
+Modes:
+  Mode 1: mwinit                    Full structure at root
+  Mode 2: mwinit --nolinks          Archives only in 00-memorywell-folders/
+  Mode 4: mwinit --hidden           Hidden structure in 00-memorywell/
+  
+Examples:
+  mwinit                    # Full visible structure
+  mwinit --gui              # Full structure + GUI apps
+  mwinit --hidden --gui     # Hidden structure + GUI apps
+  mwinit --nolinks          # Ultra-simple archives only
+`);
+  process.exit(0);
+}
+
 function createGUIApps(cwd, installDir) {
   const platform = os.platform();
   
@@ -100,6 +126,11 @@ node "${scriptPath}"`;
 function initMemoryWell() {
   const cwd = process.cwd();
   const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
+  
   const useGUI = args.includes('--gui');
   const noLinks = args.includes('--nolinks');
   const hidden = args.includes('--hidden');

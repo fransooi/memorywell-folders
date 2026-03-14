@@ -228,8 +228,45 @@ function deleteRootFiles(cwd, rootFiles) {
   });
 }
 
+function showHelp() {
+  console.log(`
+MemoryWell Extract - Extract archive without removing it from stack
+
+Usage: mwextract [options] <archive-name>
+
+Arguments:
+  archive-name            Name of archive to extract (required)
+
+Options:
+  --mode=delete|merge|archive  Safety mode when target has files
+  --dest=/path/to/directory    Extract to different location
+  --help                       Show this help message
+
+Safety modes:
+  delete    Remove current files first (⚠️ destructive)
+  merge     Keep current files + restore archive
+  archive   Create backup first, then restore (MemoryWell only)
+
+Examples:
+  mwextract 00-20260314-123456-IMAGE-first-version
+  mwextract --mode=archive 00-20260314-123456-IMAGE-v1
+  mwextract --dest=/tmp/restore 00-20260314-123456-IMAGE-v1
+  mwextract --dest=/backup --mode=merge 00-20260314-123456-IMAGE-v1
+
+Note: Extract is non-destructive - archive remains in stack.
+      Use 'mwpop' to remove archive after restoration.
+`);
+  process.exit(0);
+}
+
 async function extractMemoryWell() {
   const cwd = process.cwd();
+  
+  const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
   
   if (!isMemoryWell(cwd)) {
     console.log('❌ Not a MemoryWell directory. Run "init" first.');

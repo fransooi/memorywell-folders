@@ -64,8 +64,36 @@ function isFavorite(cwd, archiveName) {
   return fs.existsSync(favoriteLinkPath);
 }
 
+function showHelp() {
+  console.log(`
+MemoryWell SetFavorite - Mark/unmark archive as favorite
+
+Usage: mwsetfavorite <archive-name>
+
+Arguments:
+  archive-name            Name of archive to toggle favorite status
+
+Options:
+  --help                  Show this help message
+
+Examples:
+  mwsetfavorite 00-20260314-123456-IMAGE-milestone
+  mwsetfavorite 01-20260314-134567-DELTA-important-fix
+
+Note: Only available in modes 1 & 4 (modes with links).
+      Creates .favorite marker file in archive directory.
+`);
+  process.exit(0);
+}
+
 function setFavoriteArchive() {
   const cwd = process.cwd();
+  
+  const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
   
   if (!isMemoryWell(cwd)) {
     console.log('❌ Not a MemoryWell directory. Run "init" first.');

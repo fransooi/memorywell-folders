@@ -265,8 +265,39 @@ function mergeDeltaIntoNext(archivesDir, deltaToRemove, nextDelta, baseImage) {
   console.log(`  ✓ Merged ${deltaToRemove} into ${nextDelta}`);
 }
 
+function showHelp() {
+  console.log(`
+MemoryWell Pop - Pop (restore and remove) archives from stack
+
+Usage: mwpop [archive-name] [options]
+
+Modes:
+  mwpop                    Pop last archive (restore + delete)
+  mwpop <archive-name>     Pop specific archive (maintains delta chain)
+  mwpop <archive-name> --onedelta  Consolidate multiple deltas into one
+
+Options:
+  --help                   Show this help message
+
+Examples:
+  mwpop                                        # Pop last archive
+  mwpop 01-20260314-123456-DELTA-version-2     # Pop specific archive
+  mwpop 01-20260314-123456-DELTA-v1 --onedelta # Merge consecutive deltas
+
+Note: Pop is destructive - archives are deleted after restoration.
+      Use 'mwextract' for non-destructive restoration.
+`);
+  process.exit(0);
+}
+
 function popMemoryWell() {
   const cwd = process.cwd();
+  
+  const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
   
   if (!isMemoryWell(cwd)) {
     console.log('❌ Not a MemoryWell directory. Run "mwinit" first.');

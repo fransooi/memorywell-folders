@@ -137,6 +137,39 @@ function copyItem(srcPath, destPath, recursive, gitignorePatterns = null, source
   }
 }
 
+function showHelp() {
+  console.log(`
+MemoryWell Import - Import external directories into MemoryWell
+
+Usage: mwimport <path> [options]
+
+Arguments:
+  path            Path to directory to import (required)
+
+Options:
+  --merge         Merge with existing files (default)
+  --replace       Delete existing files first
+  --autopush      Push current files, import, then push imported files
+  --norecursive   Copy only files, skip subdirectories
+  --gitignore [path]  Use .gitignore to filter files (optional custom path)
+  --help          Show this help message
+
+Examples:
+  mwimport /path/to/project                    # Import and merge
+  mwimport /path/to/project --replace          # Delete current, then import
+  mwimport /path/to/project --autopush         # Push current, import, push imported
+  mwimport /path/to/project --norecursive      # Import files only (no subdirs)
+  mwimport /path/to/project --gitignore        # Filter with .gitignore
+  mwimport /path/to/project --gitignore /path/.gitignore  # Custom .gitignore
+
+Gitignore cascade:
+  1. Custom path (if specified)
+  2. .gitignore at project root
+  3. .gitignore in installation directory
+`);
+  process.exit(0);
+}
+
 function deleteRootFiles(cwd, rootFiles) {
   console.log('\n🗑️  Deleting current files...');
   rootFiles.forEach(file => {
@@ -161,6 +194,11 @@ function importToMemoryWell() {
   }
   
   const args = process.argv.slice(2);
+  
+  if (args.includes('--help')) {
+    showHelp();
+  }
+  
   const sourcePath = args.find(arg => !arg.startsWith('--'));
   let mode = args.find(arg => arg === '--merge' || arg === '--replace' || arg === '--autopush');
   const noRecursive = args.includes('--norecursive');
