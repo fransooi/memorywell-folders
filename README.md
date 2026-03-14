@@ -162,7 +162,7 @@ mwinit --nolinks
 
 ### CLI Commands
 
-#### `mwinit [--gui] [--nolinks]`
+#### `mwinit [--gui] [--hidden]`
 
 Initialize a directory as a MemoryWell.
 
