@@ -96,44 +96,79 @@ function createFavoriteLinks(baseDir, archivesDir) {
     console.error(`  ⚠️  Could not create 00-last link: ${err.message}`);
   }
   
-  // Recreate favorite links (check which archives should be favorites)
-  // We look for any non-symlink directories in favorites (actual archive copies)
-  // or we could scan for a .favorite marker file in archives
+  // Recreate favorite links for archives marked with .favorite file
+  archives.forEach(archive => {
+    const archivePath = path.join(archivesDir, archive);
+    const markerPath = path.join(archivePath, '.favorite');
+    
+    if (fs.existsSync(markerPath)) {
+      const favLinkPath = path.join(favoritesDir, archive);
+      try {
+        if (fs.existsSync(favLinkPath)) {
+          fs.unlinkSync(favLinkPath);
+        }
+        fs.symlinkSync(path.relative(favoritesDir, archivePath), favLinkPath);
+        createdCount++;
+      } catch (err) {
+        // Ignore errors
+      }
+    }
+  });
   
   return createdCount;
 }
 
-function remapMemoryWell() {
-  const cwd = process.cwd();
+function remapMemoryWell(cwd, options = {}) {
+  const silent = options.silent || false;
   
   if (!isMemoryWell(cwd)) {
-    console.log('❌ Not a MemoryWell directory. Run "mwinit" first.');
-    process.exit(1);
+    if (!silent) console.log('❌ Not a MemoryWell directory. Run "mwinit" first.');
+    return false;
   }
   
   if (hasNoLinks(cwd)) {
-    console.log('⚠️  This MemoryWell uses --nolinks mode (no symlinks to remap).');
-    process.exit(0);
+    if (!silent) console.log('⚠️  This MemoryWell uses --nolinks mode (no symlinks to remap).');
+    return false;
   }
   
   const baseDir = getBaseDir(cwd);
   const archivesDir = getArchivesDir(cwd);
   
-  console.log('🔄 Remapping MemoryWell symlinks...\n');
+  if (!silent) console.log('🔄 Remapping MemoryWell symlinks...\n');
   
   // Step 1: Remove all existing symlinks
-  console.log('1️⃣  Removing old symlinks...');
+  if (!silent) console.log('1️⃣  Removing old symlinks...');
   const removedCount = removeAllSymlinks(baseDir);
-  console.log(`   ✓ Removed ${removedCount} symlinks\n`);
+  if (!silent) console.log(`   ✓ Removed ${removedCount} symlinks\n`);
   
   // Step 2: Recreate favorite links
-  console.log('2️⃣  Recreating favorite links...');
+  if (!silent) console.log('2️⃣  Recreating favorite links...');
   const favCreatedCount = createFavoriteLinks(baseDir, archivesDir);
-  console.log(`   ✓ Created ${favCreatedCount} favorite links\n`);
+  if (!silent) console.log(`   ✓ Created ${favCreatedCount} favorite links\n`);
   
-  console.log('✅ Remap completed successfully!');
-  console.log('\n💡 Note: Time-based links (01-last-week, etc.) are not recreated.');
-  console.log('   They will be updated automatically on the next push.');
+  if (!silent) {
+    console.log('✅ Remap completed successfully!');
+    console.log('\n💡 Note: Time-based links (01-last-week, etc.) are not recreated.');
+    console.log('   They will be updated automatically on the next push.');
+  }
+  
+  return true;
 }
 
-remapMemoryWell();
+// Export functions for use by other scripts
+module.exports = {
+  isMemoryWell,
+  getBaseDir,
+  getArchivesDir,
+  hasNoLinks,
+  removeAllSymlinks,
+  createFavoriteLinks,
+  remapMemoryWell
+};
+
+// CLI execution
+if (require.main === module) {
+  const cwd = process.cwd();
+  const success = remapMemoryWell(cwd);
+  if (!success) process.exit(1);
+}

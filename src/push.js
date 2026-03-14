@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { remapMemoryWell } = require('./remap.js');
 
 function isMemoryWell(dir) {
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
@@ -350,28 +351,17 @@ function pushMemoryWell() {
       console.log(`   Files identical (skipped): ${skippedCount}`);
     }
     
-    // Favorites management (only if not in --nolinks mode)
-    if (!hasLinks(cwd)) {
-      console.log('\n✅ Push completed successfully!');
-    } else {
-      const favoritesDir = getFavoritesDir(cwd);
-      
-      if (setFavorite && fs.existsSync(favoritesDir)) {
-        const favoriteLinkPath = path.join(favoritesDir, archiveName);
-        fs.symlinkSync(path.relative(favoritesDir, archivePath), favoriteLinkPath);
-        console.log('⭐ Marked as favorite');
-      }
-      
-      if (fs.existsSync(favoritesDir)) {
-        const lastLinkPath = path.join(favoritesDir, '00-last');
-        if (fs.existsSync(lastLinkPath)) {
-          fs.unlinkSync(lastLinkPath);
-        }
-        fs.symlinkSync(path.relative(favoritesDir, archivePath), lastLinkPath);
-      }
-      
-      console.log('\n✅ Push completed successfully!');
+    // Mark as favorite if requested (create marker file)
+    if (setFavorite) {
+      const markerPath = path.join(archivePath, '.favorite');
+      fs.writeFileSync(markerPath, '');
+      console.log('⭐ Marked as favorite');
     }
+    
+    // Remap symlinks (respects --nolinks flag automatically)
+    remapMemoryWell(cwd, { silent: true });
+    
+    console.log('\n✅ Push completed successfully!');
     
   } catch (error) {
     console.error('❌ Error during push:', error.message);
