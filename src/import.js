@@ -10,6 +10,14 @@ function parseGitignore(gitignorePath) {
     return [];
   }
   
+  // Check if path is a directory
+  const stat = fs.statSync(gitignorePath);
+  if (stat.isDirectory()) {
+    console.log(`❌ Error: --gitignore expects a file path, not a directory: ${gitignorePath}`);
+    console.log(`💡 Usage: mwimport <source> --gitignore [path/to/.gitignore]`);
+    process.exit(1);
+  }
+  
   const content = fs.readFileSync(gitignorePath, 'utf8');
   return content
     .split('\n')
