@@ -89,7 +89,7 @@ function initMemoryWell() {
   const cwd = process.cwd();
   const args = process.argv.slice(2);
   const useGUI = args.includes('--gui');
-  const noLinks = args.includes('--nolinks');
+  const hidden = args.includes('--hidden');
   
   if (isMemoryWell(cwd)) {
     console.log('❌ This directory is already a MemoryWell');
@@ -99,8 +99,8 @@ function initMemoryWell() {
   try {
     const dirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
     
-    if (noLinks) {
-      // Simple mode: structure inside 00-memorywell/
+    if (hidden) {
+      // Hidden mode: structure inside 00-memorywell/
       const baseDir = path.join(cwd, '00-memorywell');
       
       dirs.forEach(dir => {
@@ -109,7 +109,7 @@ function initMemoryWell() {
       });
       
       console.log('✓ Created 00-memorywell/ (with internal structure)');
-      console.log('\n✅ MemoryWell initialized (simple mode - single visible folder)!');
+      console.log('\n✅ MemoryWell initialized (hidden mode - single visible folder)!');
     } else {
       // Full mode: structure at root
       dirs.forEach(dir => {

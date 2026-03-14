@@ -15,7 +15,7 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 - ⭐ Built-in favorites system
 - 🖱️ Optional GUI with native dialogs
 - 🚀 One-command installation
-- 🎯 Two modes: Full (visible structure) or Simple (hidden structure)
+- 🎯 Two modes: Full (visible structure) or Hidden (single folder)
 
 ---
 
@@ -44,8 +44,8 @@ MemoryWell transforms any folder into a self-archiving workspace with automatic 
 cd my-project
 mwinit
 
-# OR initialize in simple mode (single visible folder)
-mwinit --nolinks
+# OR initialize in hidden mode (single visible folder)
+mwinit --hidden
 
 # Archive your work
 echo "Hello World" > file.txt
@@ -124,7 +124,7 @@ your-project/
 mwinit
 ```
 
-### Simple Mode (--nolinks)
+### Hidden Mode (--hidden)
 
 Perfect for development where you want minimal visual clutter. The structure is hidden inside a single folder.
 
@@ -168,14 +168,14 @@ Initialize a directory as a MemoryWell.
 
 **Options:**
 - `--gui`: Create clickable GUI applications
-- `--nolinks`: Simple mode (single visible folder)
+- `--hidden`: Hidden mode (single visible folder)
 
 **Examples:**
 ```bash
 mwinit                    # Full mode
-mwinit --nolinks          # Simple mode
+mwinit --hidden           # Hidden mode
 mwinit --gui              # Full mode with GUI apps
-mwinit --gui --nolinks    # Simple mode with GUI apps
+mwinit --gui --hidden     # Hidden mode with GUI apps
 ```
 
 #### `mwpush [--usedelta] [--setfavorite] <description>`
@@ -306,12 +306,12 @@ Interactive dialogs guide you through the choice.
 
 ## 💡 Examples
 
-### Development Workflow (Simple Mode)
+### Development Workflow (Hidden Mode)
 
 ```bash
-# Initialize simple mode
+# Initialize hidden mode
 cd my-app
-mwinit --nolinks
+mwinit --hidden
 
 # Quick saves during development
 mwpush "working on login"
