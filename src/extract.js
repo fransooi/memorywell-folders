@@ -273,7 +273,6 @@ async function extractMemoryWell() {
     process.exit(1);
   }
   
-  const args = process.argv.slice(2);
   const archiveName = args.find(arg => !arg.startsWith('--'));
   const modeArg = args.find(arg => arg.startsWith('--mode='));
   const destArg = args.find(arg => arg.startsWith('--dest='));

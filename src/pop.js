@@ -304,7 +304,6 @@ function popMemoryWell() {
     process.exit(1);
   }
   
-  const args = process.argv.slice(2);
   const archiveName = args.find(arg => !arg.startsWith('--'));
   const oneDelta = args.includes('--onedelta');
   

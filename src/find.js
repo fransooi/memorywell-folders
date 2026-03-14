@@ -151,8 +151,6 @@ function findInMemoryWell() {
     process.exit(1);
   }
   
-  const args = process.argv.slice(2);
-  
   if (args.length === 0) {
     console.log('Usage: find [options]');
     console.log('\nOptions:');
