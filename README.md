@@ -23,9 +23,10 @@ MemoryWell transforms any folder into a self-archiving workspace. Choose your pr
 - [Quick Start](#quick-start)
 - [Installation](#installation)
 - [The 4 Modes](#the-4-modes)
-- [Usage](#usage)
-- [Examples](#examples)
+- [Commands](#commands)
+- [Usage Examples](#usage-examples)
 - [Delta Rules](#delta-rules)
+- [GUI Applications](#gui-applications)
 - [Future Versions](#future-versions)
 - [Author](#author)
 - [License](#license)
@@ -55,7 +56,14 @@ mwpush "first version"
 echo "More content" > file2.txt
 mwpush --usedelta "second version"
 
-# Extract an archive
+# Find and browse archives
+mwfind --contains "Hello"
+# Enter a number to open the archive folder in Finder
+
+# Pop (restore and remove from stack)
+mwpop  # Pops last archive
+
+# Extract (restore without removing)
 mwextract 00-20260314-123456-IMAGE-first-version
 ```
 
@@ -187,11 +195,9 @@ your-project/
 
 ---
 
-## 📚 Usage
+## 📚 Commands
 
-### CLI Commands
-
-#### `mwinit [--gui] [--nolinks] [--hidden]`
+### 1. `mwinit [--gui] [--nolinks] [--hidden]`
 
 Initialize a directory as a MemoryWell.
 
@@ -204,15 +210,13 @@ Initialize a directory as a MemoryWell.
 ```bash
 mwinit                    # Mode 1: Full structure
 mwinit --nolinks          # Mode 2: Archives only
-mwinit --nolinks --hidden # Mode 3: Same as mode 2
 mwinit --hidden           # Mode 4: Hidden structure
-mwinit --gui              # Mode 1 with GUI apps
 mwinit --gui --hidden     # Mode 4 with GUI apps
 ```
 
 ---
 
-#### `mwpush [--usedelta] [--setfavorite] <description>`
+### 2. `mwpush [--usedelta] [--setfavorite] <description>`
 
 Archive all files from the root directory.
 
@@ -221,16 +225,11 @@ Archive all files from the root directory.
 - `--setfavorite`: Mark as favorite (only in modes with links)
 - `<description>`: Optional description for the archive
 
-**Delta Rules:**
-- ⚠️ First archive MUST be IMAGE (--usedelta will be rejected)
-- 💡 After 5+ DELTA archives, you'll get a suggestion to create a new IMAGE
-- ✅ This ensures delta chains don't get too long and remain reliable
-
 **Examples:**
 ```bash
 mwpush "initial version"
 mwpush --usedelta "quick save"
-mwpush --setfavorite "milestone v1.0"  # Only works in modes 1 & 4
+mwpush --setfavorite "milestone v1.0"
 ```
 
 **Archive naming:**
@@ -239,43 +238,112 @@ mwpush --setfavorite "milestone v1.0"  # Only works in modes 1 & 4
 
 ---
 
-#### `mwextract [--mode=delete|merge|archive] [--dest=path] <archive-name>`
+### 3. `mwpop [archive-name] [--onedelta]`
 
-Extract an archive to the root directory or to a custom destination.
+**NEW!** Pop (restore and remove) archives from the stack.
 
-**Options:**
-- `--mode=delete|merge|archive`: Safety mode when target has files
-- `--dest=/path/to/directory`: Extract to a different location (not a MemoryWell)
+**Three modes:**
 
-**Safety modes** (if target has files):
-- `delete`: Remove current files (⚠️ destructive)
-- `merge`: Keep current files + restore archive
-- `archive`: Create backup first, then restore (only works in MemoryWell directory)
-
-**Examples:**
+#### Mode 1: Pop last archive (no parameters)
 ```bash
-# Extract to current directory (MemoryWell root)
-mwextract 00-20260314-123456-IMAGE-first-version
-mwextract --mode=archive 00-20260314-123456-IMAGE-first-version
-
-# Extract to a different location
-mwextract --dest=/tmp/restore 00-20260314-123456-IMAGE-first-version
-mwextract --dest=/home/user/backup --mode=merge 00-20260314-123456-IMAGE-first-version
+mwpop
 ```
+- Restores the last archive to root
+- Deletes the archive from the stack
+- Updates symlinks automatically
 
-**Note:** When using `--dest`, the target directory doesn't need to be a MemoryWell. The `archive` mode is not available with `--dest` (use `delete` or `merge` instead).
+#### Mode 2: Pop specific archive
+```bash
+mwpop 01-20260314-123456-DELTA-version-2
+```
+- Restores the specified archive
+- If IMAGE: updates next DELTA or converts it to IMAGE
+- If DELTA: merges into next DELTA and updates chain
+- Maintains delta chain integrity
+
+#### Mode 3: Consolidate multiple deltas
+```bash
+mwpop 01-20260314-123456-DELTA-version-2 --onedelta
+```
+- Finds all consecutive DELTAs after the specified one
+- Merges them into a single optimized DELTA
+- Deletes original DELTAs
+- Restores consolidated result
+
+**Example workflow:**
+```
+Before: IMAGE → DELTA-1 → DELTA-2 → DELTA-3
+mwpop DELTA-1 --onedelta
+After:  IMAGE → DELTA-1 (consolidated)
+```
 
 ---
 
-#### `mwfind [options]`
+### 4. `mwextract [--mode=delete|merge|archive] [--dest=path] <archive-name>`
 
-Search through archives.
+Extract an archive **without removing it** from the stack.
+
+**Options:**
+- `--mode=delete|merge|archive`: Safety mode when target has files
+- `--dest=/path/to/directory`: Extract to a different location
+
+**Safety modes:**
+- `delete`: Remove current files first
+- `merge`: Keep current files + restore archive
+- `archive`: Create backup first, then restore (MemoryWell only)
+
+**Examples:**
+```bash
+# Extract to current directory
+mwextract 00-20260314-123456-IMAGE-first-version
+mwextract --mode=archive 00-20260314-123456-IMAGE-first-version
+
+# Extract to different location
+mwextract --dest=/tmp/restore 00-20260314-123456-IMAGE-first-version
+```
+
+---
+
+### 5. `mwimport <path> [--merge|--replace|--autopush] [--norecursive]`
+
+**NEW!** Import external directories into MemoryWell.
+
+**Modes:**
+- `--merge`: Merge with existing files (default)
+- `--replace`: Delete existing files first
+- `--autopush`: Import and push automatically
+
+**Options:**
+- `--norecursive`: Copy only files, skip subdirectories
+
+**Examples:**
+```bash
+# Import and merge
+mwimport /path/to/project
+
+# Import and replace
+mwimport /path/to/project --replace
+
+# Import and auto-push
+mwimport /path/to/project --autopush
+
+# Import only files (no subdirectories)
+mwimport /path/to/project --norecursive
+```
+
+**Note:** Imports the **CONTENT** of the directory, not the directory itself.
+
+---
+
+### 6. `mwfind [options]`
+
+**IMPROVED!** Search through archives with interactive folder opening.
 
 **Options:**
 - `--name <pattern>`: Search by archive name
-- `--date <YYYYMMDD>`: Search by date
-- `--before <YYYYMMDD>`: Archives before date
-- `--after <YYYYMMDD>`: Archives after date
+- `--date <YYYYMMDD>`: Search by exact date
+- `--from <YYYYMMDD>`: Archives from date onwards
+- `--to <YYYYMMDD>`: Archives up to date
 - `--ext <extension>`: Search by file extension
 - `--contains <text>`: Search file contents
 
@@ -287,69 +355,47 @@ mwfind --ext .js
 mwfind --contains "TODO"
 ```
 
----
+**Interactive output:**
+```
+🔍 Found 3 matching archive(s):
 
-#### `mwsetfavorite <archive-name>`
+1. 00-20260314-123456-IMAGE-first-version (2 files)
+2. 01-20260314-134567-DELTA-second-version (1 file)
+3. 02-20260314-145678-IMAGE-third-version (3 files)
 
-Toggle favorite status of an archive.
-
-**Note:** Only available in modes 1 & 4 (modes with links)
-
-**Examples:**
-```bash
-mwsetfavorite 00-20260314-123456-IMAGE-first-version
+Open Finder on folder? Enter number (or press Enter to quit):
 ```
 
----
-
-#### `mwremap`
-
-Remap all symlinks after moving a MemoryWell directory.
-
-**When to use:**
-- After moving/renaming your MemoryWell directory
-- If symlinks appear broken
-- To regenerate the `00-last` link in favorites
-
-**What it does:**
-- Removes all existing symlinks
-- Recreates favorite links (including `00-last`)
-- Time-based links will be recreated on next push
-
-**Note:** Only works in modes 1 & 4 (modes with links). Not needed in `--nolinks` mode.
-
-**Examples:**
-```bash
-# After moving your project
-mv /old/path/my-project /new/path/my-project
-cd /new/path/my-project
-mwremap
-```
+Enter a number to open that archive's folder in Finder/Explorer, or press Enter to quit.
 
 ---
 
-### GUI Mode
+## 🖥️ GUI Applications
 
 When initialized with `--gui`, MemoryWell creates clickable applications:
 
 **macOS:**
-- `MemoryWell-Push.app`
-- `MemoryWell-Extract.app`
-- `MemoryWell-Find.app`
-- `MemoryWell-SetFavorite.app`
+- 📦 `MemoryWell-Push.app`
+- 📤 `MemoryWell-Pop.app`
+- 📂 `MemoryWell-Extract.app`
+- 📥 `MemoryWell-Import.app`
+- 🔍 `MemoryWell-Find.app`
 
 **Linux:**
 - `memorywell-push.sh`
+- `memorywell-pop.sh`
 - `memorywell-extract.sh`
+- `memorywell-import.sh`
 - `memorywell-find.sh`
-- `memorywell-setfavorite.sh`
 
 **Windows:**
-- Same as Linux (`.sh` files work with Git Bash)
+- Commands available via CLI: `mwpush`, `mwpop`, `mwextract`, `mwimport`, `mwfind`
+
+All GUI apps use native dialogs for user-friendly interaction
 
 ---
 
-## 💡 Examples
+## 💡 Usage Examples
 
 ### Mode 1: Full Structure Workflow
 
@@ -357,6 +403,9 @@ When initialized with `--gui`, MemoryWell creates clickable applications:
 # Initialize with full visible structure
 cd my-project
 mwinit
+
+# Import existing project
+mwimport /path/to/old-project --autopush
 
 # Create milestones
 mwpush --setfavorite "v1.0 release"
@@ -367,7 +416,14 @@ mwpush --usedelta "quick save"
 ls 01-last-week/     # Recent work
 ls 04-favorites/     # Important versions
 
-# Extract with safety
+# Find and open in Finder
+mwfind --contains "TODO"
+# Enter number to open archive folder
+
+# Pop last archive (undo last push)
+mwpop
+
+# Extract without removing
 mwextract --mode=archive 00-20260314-100000-IMAGE-v1.0-release
 ```
 
@@ -384,6 +440,13 @@ mwinit --nolinks
 mwpush "working on login"
 mwpush --usedelta "fixed bug"
 mwpush --usedelta "added tests"
+mwpush --usedelta "more tests"
+mwpush --usedelta "final tests"
+
+# Consolidate deltas
+mwfind --contains "test"
+mwpop 01-20260314-120000-DELTA-fixed-bug --onedelta
+# Merges all deltas into one
 
 # All archives in one place
 ls 00-memorywell-folders/
@@ -399,7 +462,11 @@ mwextract 00-20260314-120000-IMAGE-working-on-login
 ```bash
 # Initialize with hidden structure
 cd my-project
-mwinit --hidden
+mwinit --hidden --gui
+
+# Import and organize
+mwimport /path/to/legacy-code --replace
+mwpush --setfavorite "migrated legacy code"
 
 # Same features as Mode 1, cleaner root
 mwpush --setfavorite "v1.0"
@@ -408,7 +475,11 @@ mwpush --usedelta "quick fix"
 # Structure hidden in 00-memorywell/
 ls 00-memorywell/04-favorites/
 
-# Extract
+# Use GUI apps for easy access
+# Double-click MemoryWell-Find.app
+
+# Or use CLI
+mwfind --name "v1.0"
 mwextract 00-20260314-100000-IMAGE-v1.0
 ```
 
