@@ -617,35 +617,9 @@ function pushMemoryWell() {
               console.log(`  ✓ Moved (changed): ${fullRelPath}`);
               movedCount++;
             } else {
-              // Delete identical files from root
-              if (fs.existsSync(fileSrcPath)) {
-                fs.unlinkSync(fileSrcPath);
-              }
               skippedCount++;
             }
           });
-          
-          // Clean up empty directories recursively
-          const cleanEmptyDirs = (dirPath) => {
-            if (!fs.existsSync(dirPath)) return;
-            
-            const entries = fs.readdirSync(dirPath);
-            
-            // First, recursively clean subdirectories
-            entries.forEach(entry => {
-              const entryPath = path.join(dirPath, entry);
-              if (fs.existsSync(entryPath) && fs.statSync(entryPath).isDirectory()) {
-                cleanEmptyDirs(entryPath);
-              }
-            });
-            
-            // Then remove this directory if it's now empty
-            if (fs.existsSync(dirPath) && fs.readdirSync(dirPath).length === 0) {
-              fs.rmdirSync(dirPath);
-            }
-          };
-          
-          cleanEmptyDirs(srcPath);
         } else if (stat.isFile()) {
           if (!filesAreIdentical(currentIndex[item], imageIndex[item])) {
             const destPath = path.join(archivePath, item);
@@ -653,8 +627,6 @@ function pushMemoryWell() {
             console.log(`  ✓ Moved (changed): ${item}`);
             movedCount++;
           } else {
-            fs.unlinkSync(srcPath);
-            console.log(`  ⊘ Skipped (identical): ${item}`);
             skippedCount++;
           }
         }
@@ -666,6 +638,20 @@ function pushMemoryWell() {
         baseImage: firstImage,
         created: now.toISOString()
       }, null, 2));
+      
+      // Clean up root - delete all remaining files/folders
+      console.log(`\n🗑️  Cleaning up root directory...`);
+      rootFiles.forEach(item => {
+        const itemPath = path.join(cwd, item);
+        if (fs.existsSync(itemPath)) {
+          const stat = fs.statSync(itemPath);
+          if (stat.isDirectory()) {
+            fs.rmSync(itemPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(itemPath);
+          }
+        }
+      });
       
       console.log(`\n📦 Created ${archiveType} archive: ${archiveName}`);
       console.log(`   Base image: ${firstImage}`);
