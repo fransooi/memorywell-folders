@@ -358,8 +358,8 @@ mwpush "first version"
 echo "More content" > file2.txt
 mwpush --usedelta "second version"
 
-# Restore an archive
-mwpop 00-20260314-123456-IMAGE-first-version</code></pre>
+# Extract an archive
+mwextract 00-20260314-123456-IMAGE-first-version</code></pre>
             
             <h3>With GUI (Optional)</h3>
             <pre><code># Initialize with clickable apps
@@ -367,7 +367,7 @@ mwinit --gui
 
 # Now double-click the apps in your folder:
 # - MemoryWell-Push.app
-# - MemoryWell-Pop.app
+# - MemoryWell-Extract.app
 # - MemoryWell-Find.app
 # - MemoryWell-SetFavorite.app</code></pre>
             
@@ -376,17 +376,16 @@ mwinit --gui
             <p>MemoryWell creates a special folder structure:</p>
             
             <ul style="margin: 20px 0; padding-left: 40px; line-height: 2;">
-                <li><strong>00-folders/</strong> - All your archives</li>
                 <li><strong>01-last-week/</strong> - Archives from the last 7 days</li>
                 <li><strong>02-last-month/</strong> - Archives from the last 30 days</li>
                 <li><strong>03-last-year/</strong> - Archives from the last 365 days</li>
-                <li><strong>04-before/</strong> - Older archives</li>
-                <li><strong>05-favorite/</strong> - Your favorite archives + 00-last link</li>
+                <li><strong>04-favorites/</strong> - Your favorite archives + 00-last link</li>
+                <li><strong>05-folders/</strong> - ALL archives (actual files)</li>
             </ul>
             
             <p style="margin: 20px 0;">
                 When you <code>push</code>, all files at the root are moved into a timestamped archive. 
-                When you <code>pop</code>, the archive is restored to the root. Simple!
+                When you <code>extract</code>, the archive is restored to the root. Simple!
             </p>
             
             <div class="cta">

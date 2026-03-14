@@ -359,8 +359,8 @@ mwpush "première version"
 echo "Plus de contenu" > fichier2.txt
 mwpush --usedelta "deuxième version"
 
-# Restaurer une archive
-mwpop 00-20260314-123456-IMAGE-premiere-version</code></pre>
+# Extraire une archive
+mwextract 00-20260314-123456-IMAGE-premiere-version</code></pre>
             
             <h3>Avec Interface Graphique (Optionnel)</h3>
             <pre><code># Initialiser avec applications cliquables
@@ -368,7 +368,7 @@ mwinit --gui
 
 # Maintenant double-cliquez sur les apps dans votre dossier :
 # - MemoryWell-Push.app
-# - MemoryWell-Pop.app
+# - MemoryWell-Extract.app
 # - MemoryWell-Find.app
 # - MemoryWell-SetFavorite.app</code></pre>
             
@@ -377,17 +377,16 @@ mwinit --gui
             <p>MemoryWell crée une structure de dossiers spéciale :</p>
             
             <ul style="margin: 20px 0; padding-left: 40px; line-height: 2;">
-                <li><strong>00-folders/</strong> - Toutes vos archives</li>
                 <li><strong>01-last-week/</strong> - Archives des 7 derniers jours</li>
                 <li><strong>02-last-month/</strong> - Archives des 30 derniers jours</li>
                 <li><strong>03-last-year/</strong> - Archives des 365 derniers jours</li>
-                <li><strong>04-before/</strong> - Archives plus anciennes</li>
-                <li><strong>05-favorite/</strong> - Vos archives favorites + lien 00-last</li>
+                <li><strong>04-favorites/</strong> - Vos archives favorites + lien 00-last</li>
+                <li><strong>05-folders/</strong> - TOUTES les archives (fichiers réels)</li>
             </ul>
             
             <p style="margin: 20px 0;">
                 Quand vous faites <code>push</code>, tous les fichiers à la racine sont déplacés dans une archive horodatée. 
-                Quand vous faites <code>pop</code>, l'archive est restaurée à la racine. Simple !
+                Quand vous faites <code>extract</code>, l'archive est restaurée à la racine. Simple !
             </p>
             
             <div class="cta">
