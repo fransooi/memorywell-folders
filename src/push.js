@@ -617,13 +617,35 @@ function pushMemoryWell() {
               console.log(`  ✓ Moved (changed): ${fullRelPath}`);
               movedCount++;
             } else {
+              // Delete identical files from root
+              if (fs.existsSync(fileSrcPath)) {
+                fs.unlinkSync(fileSrcPath);
+              }
               skippedCount++;
             }
           });
           
-          if (fs.existsSync(srcPath) && fs.readdirSync(srcPath).length === 0) {
-            fs.rmdirSync(srcPath);
-          }
+          // Clean up empty directories recursively
+          const cleanEmptyDirs = (dirPath) => {
+            if (!fs.existsSync(dirPath)) return;
+            
+            const entries = fs.readdirSync(dirPath);
+            
+            // First, recursively clean subdirectories
+            entries.forEach(entry => {
+              const entryPath = path.join(dirPath, entry);
+              if (fs.existsSync(entryPath) && fs.statSync(entryPath).isDirectory()) {
+                cleanEmptyDirs(entryPath);
+              }
+            });
+            
+            // Then remove this directory if it's now empty
+            if (fs.existsSync(dirPath) && fs.readdirSync(dirPath).length === 0) {
+              fs.rmdirSync(dirPath);
+            }
+          };
+          
+          cleanEmptyDirs(srcPath);
         } else if (stat.isFile()) {
           if (!filesAreIdentical(currentIndex[item], imageIndex[item])) {
             const destPath = path.join(archivePath, item);
