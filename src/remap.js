@@ -266,6 +266,12 @@ if (require.main === module) {
   }
   
   const cwd = process.cwd();
+  
+  if (!isMemoryWell(cwd)) {
+    console.log('❌ Not a MemoryWell directory. Run "mwinit" first.');
+    process.exit(1);
+  }
+  
   const success = remapMemoryWell(cwd);
   if (!success) process.exit(1);
 }

@@ -147,7 +147,7 @@ function findInMemoryWell() {
   }
   
   if (!isMemoryWell(cwd)) {
-    console.log('❌ Not a MemoryWell directory. Run "init" first.');
+    console.log('❌ Not a MemoryWell directory. Run "mwinit" first.');
     process.exit(1);
   }
   

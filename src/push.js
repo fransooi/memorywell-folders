@@ -2,113 +2,30 @@
 
 const fs = require('fs');
 const path = require('path');
+const ignore = require('ignore');
 const { remapMemoryWell } = require('./remap.js');
 
-// Parse .gitignore file and return array of patterns
-function parseGitignore(gitignorePath) {
+// Create ignore instance from .gitignore file
+function createIgnoreFilter(gitignorePath) {
   if (!fs.existsSync(gitignorePath)) {
-    return [];
+    return null;
   }
   
   const content = fs.readFileSync(gitignorePath, 'utf8');
-  return content
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line && !line.startsWith('#'));
+  const ig = ignore().add(content);
+  return ig;
 }
 
-// Check if a file path matches any gitignore pattern
-function matchesGitignore(filePath, patterns, rootDir) {
-  const relativePath = path.relative(rootDir, filePath);
+// Check if a path should be ignored based on gitignore rules
+function shouldIgnore(relativePath, isDirectory, ignoreFilter) {
+  if (!ignoreFilter) return false;
   
-  for (const pattern of patterns) {
-    // Handle negation patterns
-    if (pattern.startsWith('!')) {
-      const negPattern = pattern.slice(1);
-      if (matchPattern(relativePath, negPattern)) {
-        return false; // Explicitly included
-      }
-      continue;
-    }
-    
-    if (matchPattern(relativePath, pattern)) {
-      return true;
-    }
+  // For directories, check both with and without trailing slash
+  if (isDirectory) {
+    return ignoreFilter.ignores(relativePath) || ignoreFilter.ignores(relativePath + '/');
   }
   
-  return false;
-}
-
-// Simple pattern matching for gitignore rules (git-compatible)
-function matchPattern(filePath, pattern) {
-  // Normalize path separators
-  filePath = filePath.replace(/\\/g, '/');
-  
-  // Remove leading slash from pattern
-  const isRooted = pattern.startsWith('/');
-  if (isRooted) {
-    pattern = pattern.slice(1);
-  }
-  
-  // Directory pattern (ends with /)
-  if (pattern.endsWith('/')) {
-    const dirPattern = pattern.slice(0, -1);
-    
-    // Check if filePath is the directory itself or inside it
-    if (filePath === dirPattern) return true;
-    if (filePath.startsWith(dirPattern + '/')) return true;
-    
-    // If not rooted, check any path component
-    if (!isRooted) {
-      const parts = filePath.split('/');
-      for (let i = 0; i < parts.length; i++) {
-        if (parts[i] === dirPattern) return true;
-      }
-    }
-    
-    return false;
-  }
-  
-  // Wildcard patterns
-  if (pattern.includes('*')) {
-    const regexPattern = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*\*/g, '§§DOUBLESTAR§§')
-      .replace(/\*/g, '[^/]*')
-      .replace(/§§DOUBLESTAR§§/g, '.*');
-    const regex = new RegExp(`^${regexPattern}$`);
-    
-    // Check full path
-    if (regex.test(filePath)) return true;
-    
-    // If not rooted, check from any directory level
-    if (!isRooted) {
-      const parts = filePath.split('/');
-      for (let i = 0; i < parts.length; i++) {
-        const subPath = parts.slice(i).join('/');
-        if (regex.test(subPath)) return true;
-      }
-    }
-    
-    return false;
-  }
-  
-  // Exact match
-  if (filePath === pattern) return true;
-  if (filePath.startsWith(pattern + '/')) return true;
-  
-  // If not rooted, check basename and any path component
-  if (!isRooted) {
-    if (path.basename(filePath) === pattern) return true;
-    const parts = filePath.split('/');
-    for (let i = 0; i < parts.length; i++) {
-      if (parts[i] === pattern) return true;
-      const subPath = parts.slice(i).join('/');
-      if (subPath === pattern || subPath.startsWith(pattern + '/')) return true;
-    }
-  }
-  
-  return false;
+  return ignoreFilter.ignores(relativePath);
 }
 
 function isMemoryWell(dir) {
@@ -267,7 +184,7 @@ function formatDate(date) {
   return `${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
-function getRootFiles(cwd, gitignorePatterns = null) {
+function getRootFiles(cwd, ignoreFilter = null) {
   const protectedDirs = ['00-memorywell', '00-memorywell-folders', '01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
   return fs.readdirSync(cwd).filter(item => {
@@ -275,13 +192,13 @@ function getRootFiles(cwd, gitignorePatterns = null) {
     if (item.startsWith('.')) return false;
     
     const itemPath = path.join(cwd, item);
+    const stat = fs.statSync(itemPath);
     
-    // Apply gitignore filtering if patterns provided
-    if (gitignorePatterns && matchesGitignore(itemPath, gitignorePatterns, cwd)) {
+    // Apply gitignore filtering if filter provided
+    if (shouldIgnore(item, stat.isDirectory(), ignoreFilter)) {
       return false;
     }
     
-    const stat = fs.statSync(itemPath);
     return stat.isFile() || stat.isDirectory();
   });
 }
@@ -380,7 +297,7 @@ function filesAreIdentical(file1Stats, file2Stats) {
          Math.abs(file1Stats.mtime - file2Stats.mtime) < 1000;
 }
 
-function copyItem(srcPath, destPath, fileCounter = { copied: 0 }, rootFolderName = '', moveMode = false) {
+function copyItem(srcPath, destPath, fileCounter = { copied: 0 }, rootFolderName = '', moveMode = false, ignoreFilter = null, rootDir = null) {
   const stat = fs.lstatSync(srcPath);
   
   if (stat.isDirectory()) {
@@ -388,7 +305,18 @@ function copyItem(srcPath, destPath, fileCounter = { copied: 0 }, rootFolderName
     const items = fs.readdirSync(srcPath);
     
     items.forEach(item => {
-      copyItem(path.join(srcPath, item), path.join(destPath, item), fileCounter, rootFolderName, moveMode);
+      const itemPath = path.join(srcPath, item);
+      
+      // Check if item should be ignored
+      if (ignoreFilter && rootDir) {
+        const relativePath = path.relative(rootDir, itemPath);
+        const itemStat = fs.lstatSync(itemPath);
+        if (shouldIgnore(relativePath, itemStat.isDirectory(), ignoreFilter)) {
+          return; // Skip this item
+        }
+      }
+      
+      copyItem(itemPath, path.join(destPath, item), fileCounter, rootFolderName, moveMode, ignoreFilter, rootDir);
     });
   } else if (stat.isFile()) {
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
@@ -403,9 +331,10 @@ function copyItem(srcPath, destPath, fileCounter = { copied: 0 }, rootFolderName
     // Show progress animation
     fileCounter.copied++;
     const fileName = path.basename(srcPath);
-    const displayName = fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName.padEnd(40, ' ');
+    const folderDisplay = rootFolderName.length > 15 ? rootFolderName.substring(0, 12) + '...' : rootFolderName.padEnd(15, ' ');
+    const fileDisplay = fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName.padEnd(20, ' ');
     const action = moveMode ? 'Moving..' : 'Copying..';
-    process.stdout.write(`\r  📋 ${action} Folder: ${rootFolderName} - ${fileCounter.copied} - ${displayName}`);
+    process.stdout.write(`\r  📋 ${action} ${folderDisplay} ${fileCounter.copied} ${fileDisplay}`);
   }
 }
 
@@ -450,15 +379,15 @@ Note: --atdate only works with IMAGE archives (not --usedelta).
 function pushMemoryWell() {
   const cwd = process.cwd();
   
-  if (!isMemoryWell(cwd)) {
-    console.log('❌ Not a MemoryWell directory. Run "init" first.');
-    process.exit(1);
-  }
-  
   const args = process.argv.slice(2);
   
   if (args.includes('--help')) {
     showHelp();
+  }
+  
+  if (!isMemoryWell(cwd)) {
+    console.log('❌ Not a MemoryWell directory. Run "mwinit" first.');
+    process.exit(1);
   }
   
   const setFavorite = args.includes('--setfavorite');
@@ -482,7 +411,7 @@ function pushMemoryWell() {
   }
   
   // Parse gitignore if requested
-  let gitignorePatterns = null;
+  let ignoreFilter = null;
   let gitignorePath = null;
   
   if (useGitignore) {
@@ -514,9 +443,8 @@ function pushMemoryWell() {
     }
     
     if (gitignorePath) {
-      gitignorePatterns = parseGitignore(gitignorePath);
-      console.log(`📋 Using .gitignore: ${gitignorePath}`);
-      console.log(`   ${gitignorePatterns.length} pattern(s) loaded\n`);
+      ignoreFilter = createIgnoreFilter(gitignorePath);
+      console.log(`📋 Using .gitignore: ${gitignorePath}\n`);
     } else {
       console.log(`⚠️  No .gitignore found (checked: parameter, root, installation)`);
       console.log('   Continuing without gitignore filtering...\n');
@@ -535,7 +463,7 @@ function pushMemoryWell() {
     return true;
   }).join(' ') || '';
   
-  const rootFiles = getRootFiles(cwd, gitignorePatterns);
+  const rootFiles = getRootFiles(cwd, ignoreFilter);
   const allRootFiles = getRootFiles(cwd); // For cleanup
   const excludedFiles = allRootFiles.filter(f => !rootFiles.includes(f));
   
@@ -617,7 +545,7 @@ function pushMemoryWell() {
         const srcPath = path.join(cwd, item);
         const destPath = path.join(archivePath, item);
         
-        copyItem(srcPath, destPath, fileCounter, item, moveMode);
+        copyItem(srcPath, destPath, fileCounter, item, moveMode, ignoreFilter, cwd);
       });
       
       // Clear progress line
@@ -677,9 +605,10 @@ function pushMemoryWell() {
               
               movedCount++;
               const fileName = path.basename(fullRelPath);
-              const displayName = fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName.padEnd(40, ' ');
+              const folderDisplay = item.length > 15 ? item.substring(0, 12) + '...' : item.padEnd(15, ' ');
+              const fileDisplay = fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName.padEnd(20, ' ');
               const action = moveMode ? 'Moving..' : 'Copying..';
-              process.stdout.write(`\r  📋 ${action} Folder: ${item} - ${movedCount} - ${displayName}`);
+              process.stdout.write(`\r  📋 ${action} ${folderDisplay} ${movedCount} ${fileDisplay}`);
             } else {
               skippedCount++;
             }
@@ -698,9 +627,10 @@ function pushMemoryWell() {
             
             movedCount++;
             const fileName = path.basename(item);
-            const displayName = fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName.padEnd(40, ' ');
+            const folderDisplay = item.length > 15 ? item.substring(0, 12) + '...' : item.padEnd(15, ' ');
+            const fileDisplay = fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName.padEnd(20, ' ');
             const action = moveMode ? 'Moving..' : 'Copying..';
-            process.stdout.write(`\r  📋 ${action} Folder: ${item} - ${movedCount} - ${displayName}`);
+            process.stdout.write(`\r  📋 ${action} ${folderDisplay} ${movedCount} ${fileDisplay}`);
           } else {
             skippedCount++;
           }
