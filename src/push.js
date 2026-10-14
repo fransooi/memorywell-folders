@@ -28,6 +28,33 @@ function shouldIgnore(relativePath, isDirectory, ignoreFilter) {
   return ignoreFilter.ignores(relativePath);
 }
 
+// ── --keep / --exclude ────────────────────────────────────────────
+function parseList(args, flag) {
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== flag) continue;
+    const v = args[i + 1];
+    if (v && !v.startsWith('--')) out.push(...v.split(',').map(s => s.trim()).filter(Boolean));
+  }
+  return out;
+}
+function parseKeep(args) { return parseList(args, '--keep'); }
+function parseExclude(args) { return parseList(args, '--exclude'); }
+
+// Un chemin correspond-il a une entree de liste ? Par CHEMIN RELATIF depuis la
+// racine OU par NOM a n'importe quelle profondeur ; un dossier emporte tout.
+function matchesEntry(srcPath, sourceRoot, list) {
+  if (!list || list.length === 0) return false;
+  const rel = path.relative(sourceRoot, srcPath).split(path.sep).join('/');
+  const name = path.basename(srcPath);
+  for (const raw of list) {
+    const k = raw.split(path.sep).join('/').replace(/\/+$/, '');
+    if (rel === k || rel.startsWith(k + '/')) return true;
+    if (name === k) return true;
+  }
+  return false;
+}
+
 function isMemoryWell(dir) {
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
@@ -184,19 +211,24 @@ function formatDate(date) {
   return `${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
-function getRootFiles(cwd, ignoreFilter = null) {
+function getRootFiles(cwd, ignoreFilter = null, keep = null, exclude = null) {
   const protectedDirs = ['00-memorywell', '00-memorywell-folders', '01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
   return fs.readdirSync(cwd).filter(item => {
     if (protectedDirs.includes(item)) return false;
-    if (item.startsWith('.')) return false;
     
     const itemPath = path.join(cwd, item);
     const stat = fs.statSync(itemPath);
-    
-    // Apply gitignore filtering if filter provided
-    if (shouldIgnore(item, stat.isDirectory(), ignoreFilter)) {
-      return false;
+    // PUSH N'EXCLUT PAS LES POINT-FICHIERS : la zone de travail a deja ete curee
+    // par l'import, on l'archive TELLE QUELLE. (Sinon un `.vscode`/`.gitignore`
+    // racine restait en place a jamais.)
+    const kept = matchesEntry(itemPath, cwd, keep);
+    if (!kept) {
+      if (matchesEntry(itemPath, cwd, exclude)) return false;
+      // Apply gitignore filtering if filter provided
+      if (shouldIgnore(item, stat.isDirectory(), ignoreFilter)) {
+        return false;
+      }
     }
     
     return stat.isFile() || stat.isDirectory();
@@ -270,8 +302,8 @@ function buildFileIndex(dirPath) {
     const items = fs.readdirSync(currentPath);
     
     items.forEach(item => {
-      if (item.startsWith('.')) return;
-      
+      // Les point-fichiers entrent dans l'index (comme dans l'archive) : sinon
+      // un `.vscode`/`.gitignore` modifie ne serait jamais vu en mode DELTA.
       const itemPath = path.join(currentPath, item);
       const relPath = relativePath ? path.join(relativePath, item) : item;
       const stat = fs.lstatSync(itemPath);
@@ -352,6 +384,11 @@ Options:
   --gitignore [path]  Use .gitignore to filter files (optional custom path)
   --atdate=YYYYMMDD   Insert archive at specific date (IMAGE only)
   --move          Move files to archive (default: copy)
+  --keep "a, b, c"    Archive these EVEN IF matched by --gitignore -- wins over
+                      everything; name at any depth, or a path from the root
+  --exclude "a, b, c"  Skip these, ALWAYS (name at any depth, or a path from the
+                      root). --keep X plus --exclude X on ONE entry is a
+                      CONTRADICTION, and it is REFUSED.
   --help          Show this help message
 
 Arguments:
@@ -394,6 +431,17 @@ function pushMemoryWell() {
   const useDelta = args.includes('--usedelta');
   const useGitignore = args.includes('--gitignore');
   const moveMode = args.includes('--move');
+  const keep = parseKeep(args);
+  const exclude = parseExclude(args);
+  // ── CONTRADICTION : REFUS NOMME, jamais un arbitrage muet ──────────────
+  const bas = (s) => s.toLowerCase();
+  const gardes = new Set(keep.map(bas));
+  const conflit = exclude.filter(e => gardes.has(bas(e)));
+  if (conflit.length > 0) {
+    console.log('\n❌ Contradiction : ' + conflit.map(c => '"' + c + '"').join(', ') + ' dans --keep ET --exclude.');
+    console.log("   Choisis. (Rien n'a ete archive.)\n");
+    process.exit(1);
+  }
   const atDateArg = args.find(arg => arg.startsWith('--atdate='));
   const atDate = atDateArg ? atDateArg.split('=')[1] : null;
   
@@ -451,20 +499,19 @@ function pushMemoryWell() {
     }
   }
   
-  // Filter out options and gitignore path parameter
-  const gitignoreArgIndex = args.indexOf('--gitignore');
-  const gitignoreArgPath = (gitignoreArgIndex !== -1 && gitignoreArgIndex + 1 < args.length && !args[gitignoreArgIndex + 1].startsWith('--')) 
-    ? args[gitignoreArgIndex + 1] 
-    : null;
-  
-  const description = args.filter(arg => {
+  // Filter out options and their value parameters (--gitignore, --keep, --exclude)
+  const valueFlags = new Set(['--gitignore', '--keep', '--exclude']);
+  const description = args.filter((arg, i) => {
     if (arg.startsWith('--')) return false;
-    if (gitignoreArgPath && arg === gitignoreArgPath) return false;
+    const prev = args[i - 1];
+    if (prev && valueFlags.has(prev)) return false;
     return true;
   }).join(' ') || '';
   
-  const rootFiles = getRootFiles(cwd, ignoreFilter);
-  const allRootFiles = getRootFiles(cwd); // For cleanup
+  const rootFiles = getRootFiles(cwd, ignoreFilter, keep, exclude);
+  // allRootFiles = nettoyage : --exclude applique, --gitignore NON (un element
+  // ecarte par --exclude ne doit JAMAIS etre supprime : ecarter n'est pas effacer).
+  const allRootFiles = getRootFiles(cwd, null, null, exclude);
   const excludedFiles = allRootFiles.filter(f => !rootFiles.includes(f));
   
   if (rootFiles.length === 0) {
