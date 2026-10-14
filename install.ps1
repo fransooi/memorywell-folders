@@ -1,4 +1,4 @@
-# MemoryWell Installation Script for Windows
+﻿# MemoryWell Installation Script for Windows
 # Requires PowerShell 5.1 or later
 
 $ErrorActionPreference = "Stop"
