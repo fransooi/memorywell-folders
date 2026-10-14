@@ -51,6 +51,17 @@ copy "%~dp0src\gui\gui-find.js"         "%INSTALL_DIR%\gui\" >nul
 copy "%~dp0src\gui\gui-setfavorite.js"  "%INSTALL_DIR%\gui\" >nul
 copy "%~dp0src\gui\gui-remap.js"        "%INSTALL_DIR%\gui\" >nul
 
+rem Dependencies -- the scripts require "ignore"
+if not exist "%~dp0node_modules\ignore" (
+    echo Installing dependencies...
+    pushd "%~dp0"
+    call npm install --omit=dev --no-audit --no-fund
+    popd
+)
+if exist "%~dp0node_modules" (
+    xcopy "%~dp0node_modules" "%INSTALL_DIR%\node_modules" /E /I /Y >nul
+)
+
 echo Creating command wrappers...
 
 (

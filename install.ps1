@@ -64,6 +64,18 @@ Copy-Item "$SCRIPT_DIR\src\gui\gui-find.js" "$INSTALL_DIR\gui\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-setfavorite.js" "$INSTALL_DIR\gui\"
 Copy-Item "$SCRIPT_DIR\src\gui\gui-remap.js" "$INSTALL_DIR\gui\"
 
+# Dependencies -- the scripts require "ignore". Install them if missing, then
+# ship node_modules inside the install so `node ...\import.js` resolves it.
+if (-not (Test-Path "$SCRIPT_DIR\node_modules\ignore")) {
+    Write-Host "Installing dependencies..."
+    Push-Location $SCRIPT_DIR
+    npm install --omit=dev --no-audit --no-fund
+    Pop-Location
+}
+if (Test-Path "$SCRIPT_DIR\node_modules") {
+    Copy-Item -Path "$SCRIPT_DIR\node_modules" -Destination "$INSTALL_DIR" -Recurse -Force
+}
+
 Write-Host "Creating command wrappers..."
 
 # Create batch wrappers

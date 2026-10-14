@@ -65,6 +65,16 @@ cp "$SCRIPT_DIR/src/gui/gui-find.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-setfavorite.js" "$INSTALL_DIR/gui/"
 cp "$SCRIPT_DIR/src/gui/gui-remap.js" "$INSTALL_DIR/gui/"
 
+# Dependencies -- the scripts require "ignore". Install them if missing, then
+# ship node_modules inside the install so `node .../import.js` resolves it.
+if [ ! -d "$SCRIPT_DIR/node_modules/ignore" ]; then
+    echo "Installing dependencies..."
+    ( cd "$SCRIPT_DIR" && npm install --omit=dev --no-audit --no-fund )
+fi
+if [ -d "$SCRIPT_DIR/node_modules" ]; then
+    cp -R "$SCRIPT_DIR/node_modules" "$INSTALL_DIR/node_modules"
+fi
+
 chmod +x "$INSTALL_DIR/src"/*.js
 chmod +x "$INSTALL_DIR/gui"/*.js
 
