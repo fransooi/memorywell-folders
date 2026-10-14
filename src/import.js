@@ -36,6 +36,33 @@ function shouldIgnore(relativePath, isDirectory, ignoreFilter) {
   return ignoreFilter.ignores(relativePath);
 }
 
+// ── --keep / --exclude ────────────────────────────────────────────
+function parseList(args, flag) {
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== flag) continue;
+    const v = args[i + 1];
+    if (v && !v.startsWith('--')) out.push(...v.split(',').map(s => s.trim()).filter(Boolean));
+  }
+  return out;
+}
+function parseKeep(args) { return parseList(args, '--keep'); }
+function parseExclude(args) { return parseList(args, '--exclude'); }
+
+// Un chemin correspond-il a une entree de liste ? Par CHEMIN RELATIF depuis la
+// source OU par NOM a n'importe quelle profondeur ; un dossier emporte tout.
+function matchesEntry(srcPath, sourceRoot, list) {
+  if (!list || list.length === 0) return false;
+  const rel = path.relative(sourceRoot, srcPath).split(path.sep).join('/');
+  const name = path.basename(srcPath);
+  for (const raw of list) {
+    const k = raw.split(path.sep).join('/').replace(/\/+$/, '');
+    if (rel === k || rel.startsWith(k + '/')) return true;   // chemin relatif
+    if (name === k) return true;                              // nom, a toute profondeur
+  }
+  return false;
+}
+
 function isMemoryWell(dir) {
   const requiredDirs = ['01-last-week', '02-last-month', '03-last-year', '04-favorites', '05-folders'];
   
@@ -67,14 +94,24 @@ function getRootFiles(cwd) {
   });
 }
 
-function copyItem(srcPath, destPath, recursive, ignoreFilter = null, sourceRoot = null, mergeMode = false, fileCounter = { copied: 0, skipped: 0 }, rootFolderName = '') {
+function copyItem(srcPath, destPath, recursive, ignoreFilter = null, sourceRoot = null, mergeMode = false, fileCounter = { copied: 0, skipped: 0 }, rootFolderName = '', keep = null, exclude = null, inheritKeep = false) {
   const stat = fs.lstatSync(srcPath);
-  
-  // Check gitignore filtering
-  if (ignoreFilter && sourceRoot) {
-    const relativePath = path.relative(sourceRoot, srcPath);
-    if (shouldIgnore(relativePath, stat.isDirectory(), ignoreFilter)) {
-      return; // Skip this item
+  const root = sourceRoot || path.dirname(srcPath);
+  // --keep (sur ce chemin) gagne sur tout. --exclude est un filtre DUR : il mord
+  // MEME dans un dossier garde. Un dossier garde emporte tout son contenu
+  // (inheritKeep), sinon `--keep e-SOLEAU` creait un dossier VIDE.
+  const selfKept = matchesEntry(srcPath, root, keep);
+  if (!selfKept) {
+    if (matchesEntry(srcPath, root, exclude)) return;
+    if (!inheritKeep) {
+      // Tout nom en '.' est saute PAR DEFAUT, a toute profondeur (sauf --keep).
+      if (path.basename(srcPath).startsWith('.')) return;
+      if (ignoreFilter && sourceRoot) {
+        const relativePath = path.relative(sourceRoot, srcPath);
+        if (shouldIgnore(relativePath, stat.isDirectory(), ignoreFilter)) {
+          return; // Skip this item
+        }
+      }
     }
   }
   
@@ -87,8 +124,9 @@ function copyItem(srcPath, destPath, recursive, ignoreFilter = null, sourceRoot 
     fs.mkdirSync(destPath, { recursive: true });
     const items = fs.readdirSync(srcPath);
     
+    const childInherit = selfKept || inheritKeep;
     items.forEach(item => {
-      copyItem(path.join(srcPath, item), path.join(destPath, item), recursive, ignoreFilter, sourceRoot, mergeMode, fileCounter, rootFolderName);
+      copyItem(path.join(srcPath, item), path.join(destPath, item), recursive, ignoreFilter, sourceRoot, mergeMode, fileCounter, rootFolderName, keep, exclude, childInherit);
     });
   } else if (stat.isFile()) {
     const fileName = path.basename(srcPath);
@@ -129,7 +167,17 @@ Options:
   --replace       Delete existing files first
   --autopush      Push current files, import, then push imported files
   --norecursive   Copy only files, skip subdirectories
+  (default)       EVERY name starting with '.' is skipped at ANY depth, plus
+                  .gitignore if --gitignore is given. --keep wins over this.
   --gitignore [path]  Use .gitignore to filter files (optional custom path)
+  --keep "a, b, c"    Copy these EVEN IF ignored (dotfiles / .gitignore) -- wins
+                      over everything; comma list, or repeat --keep. A name
+                      (".vscode") matches at any depth, a path is relative to
+                      the source: --keep ".git, .vscode, e-SOLEAU"
+  --exclude "a, b, c"  Skip these, ALWAYS -- even INSIDE a --keep folder (name
+                      at any depth, or a path relative to the source). --keep
+                      beats --exclude on the SAME entry; the two together on one
+                      entry is a CONTRADICTION, and it is REFUSED.
   --help          Show this help message
 
 Examples:
@@ -182,6 +230,17 @@ function importToMemoryWell() {
   const noRecursive = args.includes('--norecursive');
   const recursive = !noRecursive;
   const useGitignore = args.includes('--gitignore');
+  const keep = parseKeep(args);
+  const exclude = parseExclude(args);
+  // CONTRADICTION : refus nomme, jamais d'arbitrage muet.
+  const bas = (s) => s.toLowerCase();
+  const gardes = new Set(keep.map(bas));
+  const conflit = exclude.filter(e => gardes.has(bas(e)));
+  if (conflit.length > 0) {
+    console.log('\n❌ Contradiction : ' + conflit.map(c => '"' + c + '"').join(', ') + ' dans --keep ET --exclude.');
+    console.log("   Choisis. (Rien n'a ete copie.)\n");
+    process.exit(1);
+  }
   
   // Parse gitignore if requested
   let ignoreFilter = null;
@@ -284,16 +343,16 @@ function importToMemoryWell() {
         process.exit(1);
       }
       
-      continueImport(cwd, resolvedSource, mode, recursive, rootFiles, ignoreFilter);
+      continueImport(cwd, resolvedSource, mode, recursive, rootFiles, ignoreFilter, keep, exclude);
     });
     
     return;
   }
   
-  continueImport(cwd, resolvedSource, mode, recursive, rootFiles, ignoreFilter);
+  continueImport(cwd, resolvedSource, mode, recursive, rootFiles, ignoreFilter, keep, exclude);
 }
 
-function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, ignoreFilter) {
+function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, ignoreFilter, keep = null, exclude = null) {
   console.log(`\n📥 Importing from: ${resolvedSource}`);
   console.log(`   Mode: ${mode || '--merge (default)'}`);
   console.log(`   Recursive: ${recursive ? 'yes' : 'no'}\n`);
@@ -331,12 +390,14 @@ function continueImport(cwd, resolvedSource, mode, recursive, rootFiles, ignoreF
     const isMergeMode = (mode === '--merge' || !mode);
     
     sourceItems.forEach(item => {
-      if (item.startsWith('.')) return;
-      
       const srcPath = path.join(resolvedSource, item);
+      const kept = matchesEntry(srcPath, resolvedSource, keep);
+      // --keep > --exclude ; puis le defaut : tout nom en '.' est saute.
+      if (!kept && matchesEntry(srcPath, resolvedSource, exclude)) return;
+      if (item.startsWith('.') && !kept) return;
       const destPath = path.join(cwd, item);
       
-      copyItem(srcPath, destPath, recursive, ignoreFilter, resolvedSource, isMergeMode, fileCounter, item);
+      copyItem(srcPath, destPath, recursive, ignoreFilter, resolvedSource, isMergeMode, fileCounter, item, keep, exclude);
     });
     
     // Clear progress line and show completion
